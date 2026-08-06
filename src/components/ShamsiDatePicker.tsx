@@ -1,0 +1,271 @@
+import React, { useState } from 'react';
+import {
+  JalaliDate,
+  JALALI_MONTH_NAMES,
+  PERSIAN_WEEK_DAYS,
+  getJalaliMonthDays,
+  getJalaliDayOfWeek,
+  getTodayJalali,
+  isoStringToJalali,
+  jalaliToIsoString,
+  getIranianHolidayInfo,
+  formatJalaliDate,
+  toPersianDigits,
+} from '../utils/jalali';
+import { Calendar as CalendarIcon, ChevronRight, ChevronLeft, AlertCircle } from 'lucide-react';
+
+interface ShamsiDatePickerProps {
+  selectedDateIso: string; // YYYY-MM-DD
+  onChange: (isoDate: string, jalaliDateStr: string) => void;
+  label?: string;
+  isDarkMode?: boolean;
+  inline?: boolean;
+}
+
+export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
+  selectedDateIso,
+  onChange,
+  label = 'تاریخ',
+  isDarkMode = false,
+  inline = false,
+}) => {
+  const selectedJalali = isoStringToJalali(selectedDateIso);
+  const today = getTodayJalali();
+
+  const [viewJalali, setViewJalali] = useState<JalaliDate>({
+    jy: selectedJalali.jy,
+    jm: selectedJalali.jm,
+    jd: selectedJalali.jd,
+  });
+
+  const [isOpen, setIsOpen] = useState(false);
+
+  // Month navigation
+  const handlePrevMonth = () => {
+    setViewJalali((prev) => {
+      if (prev.jm === 1) {
+        return { ...prev, jy: prev.jy - 1, jm: 12 };
+      }
+      return { ...prev, jm: prev.jm - 1 };
+    });
+  };
+
+  const handleNextMonth = () => {
+    setViewJalali((prev) => {
+      if (prev.jm === 12) {
+        return { ...prev, jy: prev.jy + 1, jm: 1 };
+      }
+      return { ...prev, jm: prev.jm + 1 };
+    });
+  };
+
+  // Days grid calculation
+  const monthDaysCount = getJalaliMonthDays(viewJalali.jy, viewJalali.jm);
+  const firstDayOfWeekIndex = getJalaliDayOfWeek(viewJalali.jy, viewJalali.jm, 1);
+
+  // Handle day select
+  const handleSelectDay = (dayNum: number) => {
+    const targetJalali: JalaliDate = { jy: viewJalali.jy, jm: viewJalali.jm, jd: dayNum };
+    const isoStr = jalaliToIsoString(targetJalali);
+    const jalaliStr = formatJalaliDate(targetJalali, true);
+    onChange(isoStr, jalaliStr);
+    if (!inline) {
+      setIsOpen(false);
+    }
+  };
+
+  const activeHolidayInfo = getIranianHolidayInfo(selectedJalali.jy, selectedJalali.jm, selectedJalali.jd);
+
+  const yearsList = Array.from({ length: 11 }, (_, i) => 1398 + i); // 1398 to 1408
+
+  const calendarGrid = (
+    <div className={`p-4 rounded-2xl border transition-all ${
+      isDarkMode
+        ? 'bg-[#102A36] border-slate-700/80 text-white shadow-xl'
+        : 'bg-white border-slate-200 text-slate-800 shadow-lg'
+    }`}>
+      {/* Month & Year Header */}
+      <div className="flex items-center justify-between pb-3 border-b border-slate-200/50 mb-3">
+        <button
+          type="button"
+          onClick={handleNextMonth}
+          title="ماه بعدی"
+          className={`p-1.5 rounded-xl border transition-colors ${
+            isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-200' : 'border-slate-200 hover:bg-slate-100 text-slate-700'
+          }`}
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+
+        <div className="flex items-center gap-2">
+          <select
+            value={viewJalali.jm}
+            onChange={(e) => setViewJalali({ ...viewJalali, jm: Number(e.target.value) })}
+            className={`font-bold text-xs rounded-lg px-2 py-1 border focus:outline-hidden cursor-pointer ${
+              isDarkMode
+                ? 'bg-[#143242] border-slate-700 text-teal-300 [&>option]:bg-[#102A36] [&>option]:text-white'
+                : 'bg-slate-100 border-slate-200 text-indigo-700'
+            }`}
+          >
+            {JALALI_MONTH_NAMES.map((name, idx) => (
+              <option key={idx + 1} value={idx + 1}>
+                {name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={viewJalali.jy}
+            onChange={(e) => setViewJalali({ ...viewJalali, jy: Number(e.target.value) })}
+            className={`font-bold text-xs rounded-lg px-2 py-1 border focus:outline-hidden cursor-pointer ${
+              isDarkMode
+                ? 'bg-[#143242] border-slate-700 text-teal-300 [&>option]:bg-[#102A36] [&>option]:text-white'
+                : 'bg-slate-100 border-slate-200 text-indigo-700'
+            }`}
+          >
+            {yearsList.map((y) => (
+              <option key={y} value={y}>
+                {toPersianDigits(y)}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <button
+          type="button"
+          onClick={handlePrevMonth}
+          title="ماه قبلی"
+          className={`p-1.5 rounded-xl border transition-colors ${
+            isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-200' : 'border-slate-200 hover:bg-slate-100 text-slate-700'
+          }`}
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Weekday Names Header */}
+      <div className="grid grid-cols-7 gap-1 text-center mb-2">
+        {PERSIAN_WEEK_DAYS.map((day, idx) => (
+          <div
+            key={day}
+            className={`text-[10px] font-black py-1 rounded-md ${
+              idx === 6
+                ? 'text-rose-500'
+                : idx === 5
+                ? 'text-amber-500'
+                : isDarkMode
+                ? 'text-slate-400'
+                : 'text-slate-500'
+            }`}
+          >
+            {day.charAt(0)}
+          </div>
+        ))}
+      </div>
+
+      {/* Days Grid */}
+      <div className="grid grid-cols-7 gap-1 text-center text-xs">
+        {/* Empty cells before month start */}
+        {Array.from({ length: firstDayOfWeekIndex }).map((_, idx) => (
+          <div key={`empty-${idx}`} className="h-8" />
+        ))}
+
+        {/* Days of current month */}
+        {Array.from({ length: monthDaysCount }, (_, i) => i + 1).map((dayNum) => {
+          const isSelected =
+            selectedJalali.jy === viewJalali.jy &&
+            selectedJalali.jm === viewJalali.jm &&
+            selectedJalali.jd === dayNum;
+
+          const isToday =
+            today.jy === viewJalali.jy &&
+            today.jm === viewJalali.jm &&
+            today.jd === dayNum;
+
+          const holiday = getIranianHolidayInfo(viewJalali.jy, viewJalali.jm, dayNum);
+
+          return (
+            <button
+              key={dayNum}
+              type="button"
+              onClick={() => handleSelectDay(dayNum)}
+              title={holiday.title || (isToday ? 'امروز' : undefined)}
+              className={`relative h-8 w-full rounded-xl font-bold flex flex-col items-center justify-center transition-all cursor-pointer ${
+                isSelected
+                  ? isDarkMode
+                    ? 'bg-teal-400 text-slate-950 font-black shadow-md ring-2 ring-teal-300'
+                    : 'bg-indigo-600 text-white font-black shadow-md ring-2 ring-indigo-300'
+                  : isToday
+                  ? isDarkMode
+                    ? 'border-2 border-teal-400 text-teal-300 bg-teal-950/40'
+                    : 'border-2 border-indigo-500 text-indigo-700 bg-indigo-50'
+                  : holiday.isHoliday
+                  ? 'bg-rose-500/10 text-rose-500 font-black hover:bg-rose-500/20'
+                  : holiday.isThursday
+                  ? 'text-amber-600 hover:bg-amber-500/10'
+                  : isDarkMode
+                  ? 'hover:bg-slate-800 text-slate-200'
+                  : 'hover:bg-slate-100 text-slate-800'
+              }`}
+            >
+              <span>{toPersianDigits(dayNum)}</span>
+
+              {/* Red dot for official holiday */}
+              {holiday.isHoliday && !isSelected && (
+                <span className="absolute bottom-0.5 w-1 h-1 rounded-full bg-rose-500" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Selected Day Holiday Info Banner */}
+      {activeHolidayInfo.isHoliday && activeHolidayInfo.title && (
+        <div className="mt-3 pt-2 border-t border-slate-200/40 flex items-center gap-1.5 text-[11px] font-bold text-rose-500">
+          <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
+          <span>تعطیل رسمی: {activeHolidayInfo.title}</span>
+        </div>
+      )}
+    </div>
+  );
+
+  if (inline) {
+    return (
+      <div className="space-y-2">
+        {label && <label className={`text-xs font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{label}</label>}
+        {calendarGrid}
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative inline-block text-right">
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center gap-2 border rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+          isDarkMode
+            ? 'bg-[#143242] hover:bg-[#1A3D50] border-slate-700 text-teal-200'
+            : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
+        }`}
+      >
+        <CalendarIcon className="w-4 h-4 text-teal-400" />
+        <span>{formatJalaliDate(selectedJalali, true)}</span>
+        {activeHolidayInfo.isHoliday && (
+          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" title={activeHolidayInfo.title || 'تعطیل رسمی'} />
+        )}
+      </button>
+
+      {isOpen && (
+        <>
+          {/* Backdrop */}
+          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          {/* Popover */}
+          <div className="absolute top-full mt-2 right-0 z-50 w-72">
+            {calendarGrid}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};

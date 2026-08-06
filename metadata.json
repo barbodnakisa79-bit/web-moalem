@@ -1,0 +1,6 @@
+{
+  "name": "وب آموزگار",
+  "description": "دستیار هوشمند معلم برای مدیریت کلاس، نمره‌دهی عددی و توصیفی، حضور و غیاب، یادآورها و گزارش‌دهی پیشرفته آموزگاران",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
