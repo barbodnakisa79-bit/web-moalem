@@ -51,7 +51,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Desktop Sidebar (visible on large screens lg and above) */}
       <aside className={`hidden lg:block w-64 flex-shrink-0 p-4 space-y-1 transition-colors border-l ${
         isDarkMode
-          ? 'bg-[#102A36] border-slate-700/60 text-white'
+          ? 'bg-[#1B3E50] border-slate-700/60 text-white'
           : 'bg-white border-slate-200 text-slate-900'
       }`}>
         <div className={`text-xs font-bold px-3 pb-2 uppercase tracking-wider ${
@@ -106,7 +106,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Mobile & Tablet Bottom Navigation Bar (visible below lg breakpoint - minimized icon-only) */}
       <nav className={`lg:hidden fixed bottom-0 inset-x-0 z-40 backdrop-blur-md border-t shadow-[0_-4px_20px_rgba(0,0,0,0.25)] py-2 px-3 flex items-center justify-around gap-1 overflow-x-auto ${
         isDarkMode
-          ? 'bg-[#102A36]/95 border-slate-700/80 text-white'
+          ? 'bg-[#1B3E50]/95 border-slate-700/80 text-white'
           : 'bg-slate-900/95 border-slate-800 text-white'
       }`}>
         {menuItems.map((item) => {

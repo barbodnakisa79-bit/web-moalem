@@ -122,7 +122,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               درس: {classroom.subject}
             </span>
           </div>
-          <h2 className="text-lg sm:text-xl font-bold">{classroom.name}</h2>
+          <h2 className="text-base sm:text-lg font-bold">{classroom.name}</h2>
         </div>
 
         {/* Action Buttons moved to top (outside the class banner card) */}
@@ -175,11 +175,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {/* Main Content Grid: Class Roster & Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
         
-        {/* Student Roster Card */}
-        <div className={`lg:col-span-2 rounded-2xl border p-5 shadow-2xs space-y-4 ${
-          isDarkMode ? 'bg-[#143242] border-slate-700/80' : 'bg-white border-slate-200'
-        }`}>
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700/80 pb-3">
+        {/* Student Roster Card Section */}
+        <div className="lg:col-span-2 space-y-3">
+          <div className={`rounded-2xl border p-4 shadow-2xs flex items-center justify-between ${
+            isDarkMode ? 'bg-[#143242] border-slate-700/80' : 'bg-white border-slate-200'
+          }`}>
             <div className="flex items-center gap-2 font-bold text-slate-800 dark:text-white text-base">
               <span>لیست دانش‌آموزان کلاس ({classStudents.length} نفر)</span>
             </div>
@@ -188,86 +188,94 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </span>
           </div>
 
-          <div className="divide-y divide-slate-100 dark:divide-slate-700/60">
-            {classStudents.map((student, idx) => {
-              // Check today's attendance record
-              const todayAtt = attendance.find(
-                (a) => a.studentId === student.id && a.classId === classroom.id && a.date === todayIsoStr
-              );
-              const isAbsentToday = todayAtt?.status === 'absent';
+          {classStudents.length > 0 ? (
+            <div className="space-y-2.5">
+              {classStudents.map((student, idx) => {
+                // Check today's attendance record
+                const todayAtt = attendance.find(
+                  (a) => a.studentId === student.id && a.classId === classroom.id && a.date === todayIsoStr
+                );
+                const isAbsentToday = todayAtt?.status === 'absent';
 
-              return (
-                <div key={student.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50/80 dark:hover:bg-slate-800/50 px-2 rounded-xl transition-colors">
-                  
-                  {/* Student Name - CLICKABLE TO PROFILE */}
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm flex items-center justify-center shrink-0">
-                      {idx + 1}
+                return (
+                  <div 
+                    key={student.id} 
+                    className={`rounded-2xl border p-3 sm:p-3.5 shadow-2xs hover:shadow-md transition-all flex items-center justify-between gap-2.5 ${
+                      isDarkMode ? 'bg-[#1B3E50] border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-800'
+                    }`}
+                  >
+                    
+                    {/* Student Info */}
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-xs flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <button
+                          type="button"
+                          onClick={() => onSelectStudentProfile(student)}
+                          className="font-bold text-slate-800 dark:text-white hover:text-indigo-600 dark:hover:text-teal-300 text-xs sm:text-sm text-right transition-colors cursor-pointer flex items-center gap-1.5 truncate w-full"
+                        >
+                          <span className="truncate">{student.fullName}</span>
+                        </button>
+                        <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                          کد: <span>{student.studentCode}</span>
+                          {student.fatherName && ` | پدر: ${student.fatherName}`}
+                        </p>
+                      </div>
                     </div>
-                    <div>
+
+                    {/* Action Controls: Register Grade / Absence */}
+                    <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                      
+                      {/* Quick Absence Toggle Button */}
                       <button
                         type="button"
-                        onClick={() => onSelectStudentProfile(student)}
-                        className="font-bold text-slate-800 dark:text-white hover:text-indigo-600 dark:hover:text-teal-300 text-sm text-right transition-colors cursor-pointer flex items-center gap-1.5"
+                        onClick={() => handleQuickMarkAbsence(student)}
+                        className={`text-xs font-bold px-2.5 py-1.5 rounded-xl border transition-all flex items-center gap-1 cursor-pointer ${
+                          isAbsentToday
+                            ? 'bg-rose-500 text-white border-rose-600 shadow-xs'
+                            : isDarkMode
+                            ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-rose-950 hover:text-rose-300 hover:border-rose-800'
+                            : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
+                        }`}
+                        title={isAbsentToday ? 'علامت‌گذاری به عنوان حاضر' : 'ثبت غیبت برای امروز'}
                       >
-                        <span>{student.fullName}</span>
+                        {isAbsentToday ? (
+                          <>
+                            <X className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">غایب (امروز)</span>
+                            <span className="sm:hidden">غایب</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>ثبت غیبت</span>
+                          </>
+                        )}
                       </button>
-                      <p className="text-xs text-slate-400 mt-0.5">
-                        کد: <span className="font-mono">{student.studentCode}</span>
-                        {student.fatherName && ` | پدر: ${student.fatherName}`}
-                      </p>
+
+                      {/* Quick Grade Entry Button */}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedStudentForGrade(student)}
+                        className="text-xs font-bold px-2.5 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 text-indigo-700 dark:text-teal-300 border border-indigo-200 dark:border-indigo-800 transition-colors flex items-center gap-1 cursor-pointer"
+                      >
+                        <GraduationCap className="w-3.5 h-3.5" />
+                        <span>ثبت نمره</span>
+                      </button>
+
                     </div>
                   </div>
-
-                  {/* Inline Action Controls: Register Grade / Absence */}
-                  <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
-                    
-                    {/* Quick Absence Toggle Button */}
-                    <button
-                      type="button"
-                      onClick={() => handleQuickMarkAbsence(student)}
-                      className={`text-xs font-bold px-3 py-1.5 rounded-xl border transition-all flex items-center gap-1 cursor-pointer ${
-                        isAbsentToday
-                          ? 'bg-rose-500 text-white border-rose-600 shadow-xs'
-                          : isDarkMode
-                          ? 'bg-slate-800 text-slate-300 border-slate-700 hover:bg-rose-950 hover:text-rose-300 hover:border-rose-800'
-                          : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200'
-                      }`}
-                      title={isAbsentToday ? 'علامت‌گذاری به عنوان حاضر' : 'ثبت غیبت برای امروز'}
-                    >
-                      {isAbsentToday ? (
-                        <>
-                          <X className="w-3.5 h-3.5" />
-                          <span>غایب (امروز)</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>ثبت غیبت</span>
-                        </>
-                      )}
-                    </button>
-
-                    {/* Quick Grade Entry Button */}
-                    <button
-                      type="button"
-                      onClick={() => setSelectedStudentForGrade(student)}
-                      className="text-xs font-bold px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-100 dark:hover:bg-indigo-900/80 text-indigo-700 dark:text-teal-300 border border-indigo-200 dark:border-indigo-800 transition-colors flex items-center gap-1 cursor-pointer"
-                    >
-                      <GraduationCap className="w-3.5 h-3.5" />
-                      <span>ثبت نمره</span>
-                    </button>
-
-                  </div>
-                </div>
-              );
-            })}
-
-            {classStudents.length === 0 && (
-              <div className="p-8 text-center text-slate-400 text-xs">
-                دانش‌آموزی در این کلاس تعریف نشده است.
-              </div>
-            )}
-          </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className={`rounded-2xl border p-8 text-center text-slate-400 text-xs ${
+              isDarkMode ? 'bg-[#143242] border-slate-700/80' : 'bg-white border-slate-200'
+            }`}>
+              دانش‌آموزی در این کلاس تعریف نشده است.
+            </div>
+          )}
         </div>
 
         {/* Left Column: Quick Actions & Recent Journal */}
@@ -325,7 +333,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       {selectedStudentForGrade && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className={`rounded-3xl max-w-sm w-full p-6 shadow-xl border space-y-4 ${
-            isDarkMode ? 'bg-[#102A36] border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
+            isDarkMode ? 'bg-[#1B3E50] border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
             <div className="flex items-center justify-between border-b pb-3 border-slate-200/60">
               <h3 className="font-bold text-sm flex items-center gap-2">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Classroom, EvaluationSystem } from '../types';
-import { Plus, X, School } from 'lucide-react';
+import { Classroom, EvaluationSystem, GRADE_OPTIONS } from '../types';
+import { Plus, X, School, Eye, EyeOff, Users } from 'lucide-react';
 
 interface ClassroomModalProps {
   isOpen: boolean;
@@ -21,6 +21,14 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
   const [schoolName, setSchoolName] = useState('');
   const [academicYear, setAcademicYear] = useState('۱۴۰۳-۱۴۰۴');
   const [evaluationSystem, setEvaluationSystem] = useState<EvaluationSystem>('numeric');
+
+  // Eye toggle state for showing/hiding fields on card
+  const [showName, setShowName] = useState(true);
+  const [showGrade, setShowGrade] = useState(true);
+  const [showSchoolName, setShowSchoolName] = useState(true);
+  const [showAcademicYear, setShowAcademicYear] = useState(false);
+  const [showStudentCount, setShowStudentCount] = useState(false);
+  const [showEvaluationSystem, setShowEvaluationSystem] = useState(false);
 
   const [isCustomSchool, setIsCustomSchool] = useState(false);
 
@@ -107,7 +115,7 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !subject.trim()) return;
+    if (!subject.trim()) return;
 
     onAddClassroom({
       name: name.trim(),
@@ -116,11 +124,23 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
       schoolName: schoolName.trim(),
       academicYear: academicYear.trim(),
       evaluationSystem,
+      showName,
+      showGrade,
+      showSchoolName,
+      showAcademicYear,
+      showStudentCount,
+      showEvaluationSystem,
     });
 
     setName('');
     setSubject('');
     setSchoolName('');
+    setShowName(true);
+    setShowGrade(true);
+    setShowSchoolName(true);
+    setShowAcademicYear(false);
+    setShowStudentCount(false);
+    setShowEvaluationSystem(false);
     onClose();
   };
 
@@ -138,27 +158,47 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5 text-xs font-medium text-slate-700">
+          {/* Subject Name - Mandatory on card, no toggle */}
           <div className="space-y-1">
-            <label>نام کلاس (مثلاً: کلاس ۱۰۱ یا کلاس ششم A) *</label>
+            <div className="flex items-center justify-between">
+              <label className="font-bold">نام درس *</label>
+              <span className="text-[10px] text-slate-400 font-normal">نمایش همیشگی روی کارت</span>
+            </div>
             <input
               type="text"
               required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="مثلا: کلاس ۱۰۱ - تجربی"
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              placeholder="مثلا: ریاضی ۱"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:ring-2 focus:ring-indigo-500"
             />
           </div>
 
+          {/* School Name - Eye toggle */}
           <div className="space-y-1.5">
-            <label className="flex items-center justify-between font-bold">
-              <span>نام مدرسه یا آموزشگاه *</span>
-              {registeredSchools.length > 0 && (
-                <span className="text-[10px] text-indigo-600 font-normal">
-                  ({registeredSchools.length} مدرسه در لیست)
-                </span>
-              )}
-            </label>
+            <div className="flex items-center justify-between font-bold">
+              <div className="flex items-center gap-1">
+                <span>نام مدرسه یا آموزشگاه *</span>
+                {registeredSchools.length > 0 && (
+                  <span className="text-[10px] text-indigo-600 font-normal">
+                    ({registeredSchools.length} مدرسه در لیست)
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSchoolName(!showSchoolName)}
+                title={showSchoolName ? 'نمایش نام مدرسه روی کارت' : 'عدم نمایش نام مدرسه روی کارت'}
+                className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                  showSchoolName
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}
+              >
+                {showSchoolName ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                <span className="text-[10px]">{showSchoolName ? 'نمایش در کارت' : 'عدم نمایش'}</span>
+              </button>
+            </div>
 
             {registeredSchools.length > 0 ? (
               <select
@@ -211,33 +251,110 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
             )}
           </div>
 
+          {/* Class Name - Eye toggle */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="font-bold">نام کلاس (اختیاری)</label>
+              <button
+                type="button"
+                onClick={() => setShowName(!showName)}
+                title={showName ? 'نمایش نام کلاس روی کارت' : 'عدم نمایش نام کلاس روی کارت'}
+                className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                  showName
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}
+              >
+                {showName ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                <span className="text-[10px]">{showName ? 'نمایش در کارت' : 'عدم نمایش'}</span>
+              </button>
+            </div>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="مثلا: کلاس ۱۰۱ - تجربی (اختیاری)"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:ring-2 focus:ring-indigo-500"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-3">
+            {/* Grade - Eye toggle */}
             <div className="space-y-1">
-              <label>پایه تحصیلی</label>
-              <input
-                type="text"
+              <div className="flex items-center justify-between">
+                <label className="font-bold">پایه تحصیلی</label>
+                <button
+                  type="button"
+                  onClick={() => setShowGrade(!showGrade)}
+                  title={showGrade ? 'نمایش پایه تحصیلی روی کارت' : 'عدم نمایش پایه روی کارت'}
+                  className={`flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                    showGrade
+                      ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  }`}
+                >
+                  {showGrade ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+              <select
+                required
                 value={grade}
                 onChange={(e) => setGrade(e.target.value)}
-                placeholder="پایه دهم"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:ring-2 focus:ring-indigo-500"
-              />
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+              >
+                {GRADE_OPTIONS.map((g) => (
+                  <option key={g} value={g}>
+                    {g}
+                  </option>
+                ))}
+              </select>
             </div>
 
+            {/* Academic Year - Eye toggle */}
             <div className="space-y-1">
-              <label>نام درس *</label>
+              <div className="flex items-center justify-between">
+                <label className="font-bold">سال تحصیلی</label>
+                <button
+                  type="button"
+                  onClick={() => setShowAcademicYear(!showAcademicYear)}
+                  title={showAcademicYear ? 'نمایش سال تحصیلی روی کارت' : 'عدم نمایش سال تحصیلی روی کارت'}
+                  className={`flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                    showAcademicYear
+                      ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                      : 'bg-slate-50 border-slate-200 text-slate-400'
+                  }`}
+                >
+                  {showAcademicYear ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                </button>
+              </div>
               <input
                 type="text"
-                required
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                placeholder="ریاضی ۱"
+                value={academicYear}
+                onChange={(e) => setAcademicYear(e.target.value)}
+                placeholder="۱۴۰۳-۱۴۰۴"
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:ring-2 focus:ring-indigo-500"
               />
             </div>
           </div>
 
+          {/* Evaluation System - Eye toggle */}
           <div className="space-y-1">
-            <label>سیستم ارزشیابی *</label>
+            <div className="flex items-center justify-between">
+              <label className="font-bold">سیستم ارزشیابی *</label>
+              <button
+                type="button"
+                onClick={() => setShowEvaluationSystem(!showEvaluationSystem)}
+                title={showEvaluationSystem ? 'نمایش سیستم ارزشیابی روی کارت' : 'عدم نمایش روی کارت'}
+                className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                  showEvaluationSystem
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}
+              >
+                {showEvaluationSystem ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                <span className="text-[10px]">{showEvaluationSystem ? 'نمایش در کارت' : 'عدم نمایش'}</span>
+              </button>
+            </div>
             <select
               value={evaluationSystem}
               onChange={(e) => setEvaluationSystem(e.target.value as EvaluationSystem)}
@@ -248,18 +365,28 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
             </select>
           </div>
 
-          <div className="space-y-1">
-            <label>سال تحصیلی</label>
-            <input
-              type="text"
-              value={academicYear}
-              onChange={(e) => setAcademicYear(e.target.value)}
-              placeholder="۱۴۰۳-۱۴۰۴"
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:ring-2 focus:ring-indigo-500"
-            />
+          {/* Student Count - Eye toggle */}
+          <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50">
+            <span className="font-bold text-slate-700 flex items-center gap-1.5">
+              <Users className="w-4 h-4 text-slate-500" />
+              <span>تعداد / آمار دانش‌آموزان</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowStudentCount(!showStudentCount)}
+              title={showStudentCount ? 'نمایش تعداد دانش‌آموزان روی کارت' : 'عدم نمایش روی کارت'}
+              className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                showStudentCount
+                  ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                  : 'bg-slate-100 border-slate-200 text-slate-400'
+              }`}
+            >
+              {showStudentCount ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+              <span className="text-[10px]">{showStudentCount ? 'نمایش در کارت' : 'عدم نمایش'}</span>
+            </button>
           </div>
 
-          <div className="pt-2 flex items-center justify-end gap-2">
+          <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100">
             <button
               type="button"
               onClick={onClose}

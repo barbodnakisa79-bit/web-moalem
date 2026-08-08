@@ -45,7 +45,7 @@ export default function App() {
       const saved = localStorage.getItem('amoozgar_selectedClassId');
       if (saved) return saved;
     } catch {}
-    return initialClassrooms[0]?.id || 'class-301';
+    return initialClassrooms[0]?.id || '';
   });
 
   const [students, setStudents] = useState<Student[]>(() => {
@@ -247,6 +247,35 @@ export default function App() {
     evaluationSystem: 'numeric',
   };
 
+  // Effect to automatically sync student classIds with matching grade classrooms
+  useEffect(() => {
+    if (classrooms.length > 0 && students.length > 0) {
+      setStudents((prev) => {
+        let changed = false;
+        const updated = prev.map((s) => {
+          const matchingIds = classrooms
+            .filter((c) => {
+              const schoolMatch = !s.schoolName || !c.schoolName || c.schoolName.trim() === s.schoolName.trim();
+              const gradeMatch = s.grade && c.grade && c.grade.trim() === s.grade.trim();
+              return schoolMatch && gradeMatch;
+            })
+            .map((c) => c.id);
+
+          if (s.classId && !matchingIds.includes(s.classId)) matchingIds.push(s.classId);
+          const currentIds = s.classIds || (s.classId ? [s.classId] : []);
+          const mergedSet = new Set([...currentIds, ...matchingIds]);
+
+          if (mergedSet.size !== currentIds.length) {
+            changed = true;
+            return { ...s, classIds: Array.from(mergedSet) };
+          }
+          return s;
+        });
+        return changed ? updated : prev;
+      });
+    }
+  }, [classrooms]);
+
   // Handler to add classroom
   const handleAddClassroom = (newCls: Omit<Classroom, 'id'>) => {
     const created: Classroom = {
@@ -256,6 +285,20 @@ export default function App() {
     setClassrooms((prev) => [...prev, created]);
     setSelectedClassId(created.id);
     setDashboardSubView('detail');
+
+    // Automatically assign existing students of the same grade & school to this new classroom
+    setStudents((prev) =>
+      prev.map((s) => {
+        const schoolMatch = !newCls.schoolName || !s.schoolName || s.schoolName.trim() === newCls.schoolName.trim();
+        const gradeMatch = s.grade && newCls.grade && s.grade.trim() === newCls.grade.trim();
+        if (schoolMatch && gradeMatch) {
+          const currentIds = s.classIds || (s.classId ? [s.classId] : []);
+          const merged = Array.from(new Set([...currentIds, created.id]));
+          return { ...s, classIds: merged };
+        }
+        return s;
+      })
+    );
   };
 
   // Handler to update classroom
@@ -280,11 +323,11 @@ export default function App() {
     const classIdsInSchool = classesInSchool.map((c) => c.id);
 
     setClassrooms((prev) => prev.filter((c) => c.schoolName !== schoolName));
-    setStudents((prev) => prev.filter((s) => !classIdsInSchool.includes(s.classroomId)));
-    setScores((prev) => prev.filter((s) => !classIdsInSchool.includes(s.classroomId)));
-    setAttendance((prev) => prev.filter((a) => !classIdsInSchool.includes(a.classroomId)));
-    setJournals((prev) => prev.filter((j) => !classIdsInSchool.includes(j.classroomId)));
-    setBehavioralPoints((prev) => prev.filter((p) => !classIdsInSchool.includes(p.classroomId)));
+    setStudents((prev) => prev.filter((s) => !classIdsInSchool.includes(s.classId)));
+    setScores((prev) => prev.filter((s) => !classIdsInSchool.includes(s.classId)));
+    setAttendance((prev) => prev.filter((a) => !classIdsInSchool.includes(a.classId)));
+    setJournals((prev) => prev.filter((j) => !classIdsInSchool.includes(j.classId)));
+    setBehavioralPoints((prev) => prev.filter((p) => !classIdsInSchool.includes(p.classId)));
 
     const remaining = classrooms.filter((c) => c.schoolName !== schoolName);
     if (remaining.length > 0) {
@@ -301,8 +344,25 @@ export default function App() {
 
   // Handler to add student
   const handleAddStudent = (newStudent: Omit<Student, 'id'>) => {
+    // Find all matching classrooms in same grade & school
+    const matchingClassIds = classrooms
+      .filter((c) => {
+        const schoolMatch = !newStudent.schoolName || !c.schoolName || c.schoolName.trim() === newStudent.schoolName.trim();
+        const gradeMatch = newStudent.grade && c.grade && c.grade.trim() === newStudent.grade.trim();
+        return schoolMatch && gradeMatch;
+      })
+      .map((c) => c.id);
+
+    if (newStudent.classId && !matchingClassIds.includes(newStudent.classId)) {
+      matchingClassIds.push(newStudent.classId);
+    }
+
+    const currentClassIds = newStudent.classIds || [];
+    const mergedClassIds = Array.from(new Set([...currentClassIds, ...matchingClassIds]));
+
     const created: Student = {
       ...newStudent,
+      classIds: mergedClassIds,
       id: `std-${Date.now()}`,
     };
     setStudents((prev) => [...prev, created]);
@@ -310,9 +370,21 @@ export default function App() {
 
   // Handler to update student
   const handleUpdateStudent = (updatedStudent: Student) => {
-    setStudents((prev) => prev.map((s) => (s.id === updatedStudent.id ? updatedStudent : s)));
-    if (selectedProfileStudent?.id === updatedStudent.id) {
-      setSelectedProfileStudent(updatedStudent);
+    // Update classIds for updated grade/school
+    const matchingClassIds = classrooms
+      .filter((c) => {
+        const schoolMatch = !updatedStudent.schoolName || !c.schoolName || c.schoolName.trim() === updatedStudent.schoolName.trim();
+        const gradeMatch = updatedStudent.grade && c.grade && c.grade.trim() === updatedStudent.grade.trim();
+        return schoolMatch && gradeMatch;
+      })
+      .map((c) => c.id);
+
+    const mergedClassIds = Array.from(new Set([...(updatedStudent.classIds || []), ...matchingClassIds]));
+    const finalStudent = { ...updatedStudent, classIds: mergedClassIds };
+
+    setStudents((prev) => prev.map((s) => (s.id === finalStudent.id ? finalStudent : s)));
+    if (selectedProfileStudent?.id === finalStudent.id) {
+      setSelectedProfileStudent(finalStudent);
     }
   };
 
@@ -371,9 +443,25 @@ export default function App() {
 
   // Handler to import students parsed from Android converter
   const handleImportParsedStudents = (parsedStudents: Array<{ fullName: string; studentCode: string; fatherName?: string; parentPhone?: string }>) => {
+    const matchingClassIds = classrooms
+      .filter((c) => {
+        const schoolMatch = !activeClassroom.schoolName || !c.schoolName || c.schoolName.trim() === activeClassroom.schoolName.trim();
+        const gradeMatch = activeClassroom.grade && c.grade && c.grade.trim() === activeClassroom.grade.trim();
+        return schoolMatch && gradeMatch;
+      })
+      .map((c) => c.id);
+
+    if (activeClassroom.id && !matchingClassIds.includes(activeClassroom.id)) {
+      matchingClassIds.push(activeClassroom.id);
+    }
+
     const createdList: Student[] = parsedStudents.map((st, i) => ({
       id: `android-std-${Date.now()}-${i}`,
       classId: activeClassroom.id,
+      classIds: matchingClassIds,
+      grade: activeClassroom.grade,
+      schoolName: activeClassroom.schoolName,
+      className: activeClassroom.name,
       fullName: st.fullName,
       studentCode: st.studentCode || `00${Date.now() % 1000000}`,
       fatherName: st.fatherName,
@@ -397,7 +485,7 @@ export default function App() {
 
   return (
     <div className={`min-h-screen flex flex-col font-sans transition-colors ${
-      isDarkMode ? 'bg-[#0B1E28] text-slate-100' : 'bg-slate-50 text-slate-900'
+      isDarkMode ? 'bg-[#07151E] text-slate-100' : 'bg-[#edf2f7] text-slate-900'
     }`} dir="rtl">
       
       {/* Top Header */}
@@ -456,9 +544,11 @@ export default function App() {
                   <SubjectCardsView
                     classrooms={classrooms}
                     students={students}
-                    onSelectClassroom={(cls) => {
+                    onSelectClassroom={(cls, autoOpenDetail = true) => {
                       setSelectedClassId(cls.id);
-                      setDashboardSubView('detail');
+                      if (autoOpenDetail) {
+                        setDashboardSubView('detail');
+                      }
                     }}
                     onOpenAddClassModal={() => setIsAddClassModalOpen(true)}
                     onUpdateClassroom={handleUpdateClassroom}
@@ -498,6 +588,7 @@ export default function App() {
                   onAddAttendance={handleSingleAddAttendance}
                   onAddBehaviorPoint={handleAddBehaviorPoint}
                   onSelectStudentProfile={(student) => setSelectedProfileStudent(student)}
+                  onSelectClassroom={(cls) => setSelectedClassId(cls.id)}
                   isDarkMode={isDarkMode}
                 />
               )}
@@ -508,6 +599,7 @@ export default function App() {
               students={students}
               attendance={attendance}
               onSaveAttendance={handleSaveAttendance}
+              isDarkMode={isDarkMode}
             />
           )}
 
@@ -517,6 +609,7 @@ export default function App() {
               students={students}
               scores={scores}
               onAddScores={handleAddScores}
+              isDarkMode={isDarkMode}
             />
           )}
 
@@ -530,6 +623,7 @@ export default function App() {
               attendance={attendance}
               behavioralPoints={behavioralPoints}
               onAddBehaviorPoint={handleAddBehaviorPoint}
+              isDarkMode={isDarkMode}
             />
           )}
 
@@ -544,6 +638,7 @@ export default function App() {
               behavioralPoints={behavioralPoints}
               onAddBehaviorPoint={handleAddBehaviorPoint}
               defaultTab="behavior"
+              isDarkMode={isDarkMode}
             />
           )}
 
@@ -565,6 +660,7 @@ export default function App() {
               scores={scores}
               attendance={attendance}
               defaultTab="reports"
+              isDarkMode={isDarkMode}
             />
           )}
 

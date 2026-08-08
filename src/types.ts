@@ -14,6 +14,21 @@ export type AssessmentType = 'continuous' | 'oral' | 'homework' | 'exam' | 'beha
 
 export type EvaluationSystem = 'numeric' | 'descriptive'; // numeric (0-20) or descriptive (خیلی خوب، خوب، قابل قبول، نیاز به تلاش)
 
+export const GRADE_OPTIONS = [
+  'پایه اول',
+  'پایه دوم',
+  'پایه سوم',
+  'پایه چهارم',
+  'پایه پنجم',
+  'پایه ششم',
+  'پایه هفتم',
+  'پایه هشتم',
+  'پایه نهم',
+  'پایه دهم',
+  'پایه یازدهم',
+  'پایه دوازدهم',
+];
+
 export interface Student {
   id: string;
   classId: string;
@@ -37,6 +52,12 @@ export interface Classroom {
   schoolName?: string; // نام مدرسه
   academicYear: string; // سال تحصیلی (مثلا: ۱۴۰۳-۱۴۰۴)
   evaluationSystem: EvaluationSystem;
+  showName?: boolean; // نمایش نام کلاس روی کارت درس
+  showGrade?: boolean; // نمایش پایه تحصیلی روی کارت درس
+  showSchoolName?: boolean; // نمایش نام مدرسه روی کارت درس
+  showAcademicYear?: boolean; // نمایش سال تحصیلی روی کارت درس
+  showStudentCount?: boolean; // نمایش آمار تعداد دانش‌آموزان روی کارت درس
+  showEvaluationSystem?: boolean; // نمایش نوع سیستم ارزشیابی روی کارت درس
 }
 
 export interface AttendanceRecord {

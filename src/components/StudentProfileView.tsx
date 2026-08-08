@@ -270,7 +270,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
       
       {/* Top Navigation & Action Bar */}
       <div className={`rounded-2xl border p-3.5 shadow-2xs flex items-center justify-between gap-3 ${
-        isDarkMode ? 'bg-[#102A36] border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
+        isDarkMode ? 'bg-[#1B3E50] border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}>
         <div className="flex items-center gap-3">
           <button
@@ -303,7 +303,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
 
       {/* Main Full Page Header Banner */}
       <div className={`rounded-3xl border shadow-md overflow-hidden ${
-        isDarkMode ? 'bg-[#102A36] border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
+        isDarkMode ? 'bg-[#1B3E50] border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
       }`}>
         <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-indigo-800 p-6 text-white flex flex-col md:flex-row md:items-center justify-between gap-5">
           <div className="flex items-center gap-4">
@@ -476,7 +476,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                         required
                         value={studentCode}
                         onChange={(e) => setStudentCode(e.target.value)}
-                        className={`w-full px-3.5 py-2.5 rounded-xl border font-mono font-bold text-sm focus:outline-hidden ${
+                        className={`w-full px-3.5 py-2.5 rounded-xl border font-bold text-sm focus:outline-hidden ${
                           isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                         }`}
                       />
@@ -500,7 +500,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                         type="tel"
                         value={parentPhone}
                         onChange={(e) => setParentPhone(e.target.value)}
-                        className={`w-full px-3.5 py-2.5 rounded-xl border font-mono font-bold text-sm focus:outline-hidden ${
+                        className={`w-full px-3.5 py-2.5 rounded-xl border font-bold text-sm focus:outline-hidden ${
                           isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                         }`}
                       />
@@ -643,7 +643,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
 
                     <div className={`p-4 rounded-2xl border space-y-1 ${isDarkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                       <span className="text-slate-400 font-bold block">کد دانش‌آموزی / کدملی:</span>
-                      <p className="text-base font-mono font-black text-slate-800 dark:text-white">{student.studentCode}</p>
+                      <p className="text-base font-black text-slate-800 dark:text-white">{student.studentCode}</p>
                     </div>
 
                     <div className={`p-4 rounded-2xl border space-y-1 ${isDarkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
@@ -654,7 +654,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                     <div className={`p-4 rounded-2xl border space-y-1 ${isDarkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
                       <span className="text-slate-400 font-bold block">شماره تماس ولی:</span>
                       {student.parentPhone ? (
-                        <a href={`tel:${student.parentPhone}`} className="text-base font-mono font-bold text-indigo-600 dark:text-teal-300 hover:underline flex items-center gap-1.5">
+                        <a href={`tel:${student.parentPhone}`} className="text-base font-bold text-indigo-600 dark:text-teal-300 hover:underline flex items-center gap-1.5">
                           <Phone className="w-4 h-4" />
                           <span>{student.parentPhone}</span>
                         </a>
@@ -723,7 +723,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
 
               {/* Add Grade Form */}
               {showAddGradeForm && (
-                <form onSubmit={handleSaveGrade} className={`p-5 rounded-2xl border space-y-4 text-xs ${
+                <form onSubmit={handleSaveGrade} className={`p-5 rounded-2xl border space-y-4 text-xs relative z-30 ${
                   isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-indigo-50/50 border-indigo-100'
                 }`}>
                   <h4 className="font-bold text-sm text-indigo-700 dark:text-teal-300">افزودن نمره جدید برای {student.fullName}</h4>
@@ -743,11 +743,13 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                       />
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 relative z-50">
                       <label className="font-bold block">تاریخ ارزیابی</label>
                       <ShamsiDatePicker
                         selectedDateIso={gradeDate}
                         onChange={(isoStr) => setGradeDate(isoStr)}
+                        isDarkMode={isDarkMode}
+                        align="left"
                       />
                     </div>
 
@@ -831,7 +833,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                         <div className="flex items-center gap-2">
                           <span className="font-bold text-sm text-slate-800 dark:text-white">{score.title}</span>
                           <span className="text-[11px] text-slate-400">
-                            {formatJalaliDate(isoStringToJalali(score.date), true)}
+                            {formatJalaliDate(isoStringToJalali(score.date), false)}
                           </span>
                         </div>
                         {score.note && <p className="text-slate-500 text-xs">{score.note}</p>}
@@ -884,7 +886,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
 
               {/* Add Attendance Form */}
               {showAddAttForm && (
-                <form onSubmit={handleSaveAttendance} className={`p-5 rounded-2xl border space-y-4 text-xs ${
+                <form onSubmit={handleSaveAttendance} className={`p-5 rounded-2xl border space-y-4 text-xs relative z-30 ${
                   isDarkMode ? 'bg-slate-800 border-slate-700' : 'bg-rose-50/50 border-rose-100'
                 }`}>
                   <h4 className="font-bold text-sm text-rose-700 dark:text-rose-400">ثبت وضعیت جدید برای {student.fullName}</h4>
@@ -906,11 +908,13 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                       </select>
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 relative z-50">
                       <label className="font-bold block">تاریخ</label>
                       <ShamsiDatePicker
                         selectedDateIso={attDate}
                         onChange={(isoStr) => setAttDate(isoStr)}
+                        isDarkMode={isDarkMode}
+                        align="left"
                       />
                     </div>
 
@@ -980,7 +984,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                               {isAbsent ? 'غایب' : isLate ? 'تأخیر' : isExcused ? 'غیبت موجه' : 'حاضر'}
                             </span>
                             <span className="text-[11px] opacity-70 block">
-                              {formatJalaliDate(isoStringToJalali(record.date), true)}
+                              {formatJalaliDate(isoStringToJalali(record.date), false)}
                             </span>
                           </div>
                         </div>
@@ -1074,11 +1078,13 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                       />
                     </div>
 
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 relative z-50">
                       <label className="font-bold block">تاریخ</label>
                       <ShamsiDatePicker
                         selectedDateIso={behaviorDate}
                         onChange={(isoStr) => setBehaviorDate(isoStr)}
+                        isDarkMode={isDarkMode}
+                        align="left"
                       />
                     </div>
                   </div>
@@ -1116,7 +1122,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                       <div className="space-y-1">
                         <span className="font-bold text-sm block">{item.title}</span>
                         <span className="text-[11px] opacity-70">
-                          {formatJalaliDate(isoStringToJalali(item.date), true)}
+                          {formatJalaliDate(isoStringToJalali(item.date), false)}
                         </span>
                       </div>
 

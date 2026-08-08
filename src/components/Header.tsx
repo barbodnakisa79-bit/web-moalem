@@ -19,12 +19,12 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleDarkMode,
 }) => {
   const todayJalali = getTodayJalali();
-  const todayStr = formatJalaliDate(todayJalali, true);
+  const todayStr = formatJalaliDate(todayJalali, false);
 
   return (
     <header className={`sticky top-0 z-30 transition-colors border-b shadow-xs ${
       isDarkMode
-        ? 'bg-[#102A36] border-slate-700/60 text-white'
+        ? 'bg-[#1B3E50] border-slate-700/60 text-white'
         : 'bg-white border-slate-200 text-slate-900'
     }`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -38,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div>
                 <h1 className={`text-lg font-bold leading-tight ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>وب آموزگار</h1>
-                <p className={`text-xs font-medium ${isDarkMode ? 'text-teal-300/80' : 'text-slate-500'}`}>دستیار هوشمند مدیریت کلاس درس</p>
+                <p className={`text-xs font-medium ${isDarkMode ? 'text-teal-300/80' : 'text-slate-500'}`}>دستیار مدیریت کلاس</p>
               </div>
             </div>
           </div>
@@ -49,7 +49,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Today's Date Badge */}
             <div className={`flex items-center gap-2 border rounded-xl px-3 py-1.5 text-xs font-semibold ${
               isDarkMode
-                ? 'bg-[#143242] border-slate-700 text-teal-200'
+                ? 'bg-[#204A5F] border-slate-700 text-teal-200'
                 : 'bg-slate-50 border-slate-200 text-slate-600'
             }`}>
               <span>{todayStr}</span>
@@ -63,7 +63,7 @@ export const Header: React.FC<HeaderProps> = ({
                 title={isDarkMode ? 'تغییر به حالت روشن (روز)' : 'تغییر به حالت تاریک (شب)'}
                 className={`p-2 rounded-xl transition-all border flex items-center justify-center cursor-pointer active:scale-95 ${
                   isDarkMode
-                    ? 'bg-[#143242] hover:bg-[#1A3D50] border-slate-700 text-amber-400 hover:border-amber-400/50'
+                    ? 'bg-[#204A5F] hover:bg-[#285A72] border-slate-700 text-amber-400 hover:border-amber-400/50'
                     : 'bg-slate-100 hover:bg-slate-200/80 border-slate-200 text-indigo-600 hover:border-indigo-300'
                 }`}
               >

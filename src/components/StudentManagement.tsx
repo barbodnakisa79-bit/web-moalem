@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Classroom, Student, ScoreRecord, AttendanceRecord, BehavioralPoint } from '../types';
+import { Classroom, Student, ScoreRecord, AttendanceRecord, BehavioralPoint, GRADE_OPTIONS } from '../types';
 import { isStudentInClassroom } from '../utils/studentUtils';
 import { Users, Search, Plus, Phone, FileText, Trash2, X } from 'lucide-react';
 import { StudentProfileModal } from './StudentProfileModal';
@@ -18,6 +18,7 @@ interface StudentManagementProps {
   onAddAttendance: (record: AttendanceRecord) => void;
   onAddBehaviorPoint: (point: BehavioralPoint) => void;
   onSelectStudentProfile?: (student: Student) => void;
+  onSelectClassroom?: (classroom: Classroom) => void;
   isDarkMode?: boolean;
   classrooms?: Classroom[];
 }
@@ -36,6 +37,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
   onAddAttendance,
   onAddBehaviorPoint,
   onSelectStudentProfile,
+  onSelectClassroom,
   isDarkMode = false,
   classrooms = [],
 }) => {
@@ -179,11 +181,12 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
       registeredList.push('سایر');
     }
     return registeredList;
-  }, [classrooms]);
+  }, [classrooms, students]);
 
   const [selectedSchoolFilter, setSelectedSchoolFilter] = useState<string>(() => {
     try {
-      return localStorage.getItem('amoozgar_selectedSchoolFilter') || '';
+      const saved = localStorage.getItem('amoozgar_selectedSchoolFilter');
+      return saved && saved !== 'همه مدارس' ? saved : '';
     } catch {
       return '';
     }
@@ -195,8 +198,6 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
     if (filterAvailableSchools.length > 0) {
       if (
         !selectedSchoolFilter ||
-        selectedSchoolFilter === 'همه' ||
-        selectedSchoolFilter === 'همه مدارس' ||
         !filterAvailableSchools.includes(selectedSchoolFilter)
       ) {
         setSelectedSchoolFilter(filterAvailableSchools[0]);
@@ -214,11 +215,41 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
     }
   }, [selectedSchoolFilter]);
 
+  // Helper function to check if a student belongs to a given school filter
+  const isStudentInSchool = (s: Student, schoolFilter: string): boolean => {
+    if (!schoolFilter || schoolFilter === 'همه مدارس') return true;
+
+    const studentSchools = new Set<string>();
+    if (s.schoolName && s.schoolName.trim()) {
+      studentSchools.add(s.schoolName.trim());
+    }
+    classrooms.forEach((c) => {
+      if (c.schoolName && c.schoolName.trim() && isStudentInClassroom(s, c)) {
+        studentSchools.add(c.schoolName.trim());
+      }
+    });
+
+    if (schoolFilter === 'سایر') {
+      return studentSchools.size === 0;
+    }
+
+    return studentSchools.has(schoolFilter.trim());
+  };
+
+  // Helper function to check if a student belongs to a given grade filter
+  const isStudentInGrade = (s: Student, gradeFilter: string): boolean => {
+    if (!gradeFilter) return true;
+    if (s.grade && s.grade.trim() === gradeFilter.trim()) return true;
+    return classrooms.some(
+      (c) => c.grade && c.grade.trim() === gradeFilter.trim() && isStudentInClassroom(s, c)
+    );
+  };
+
   const classroomsForSchool = useMemo(() => {
     return classrooms.filter((c) => {
-      if (!selectedSchoolFilter) return true;
+      if (!selectedSchoolFilter || selectedSchoolFilter === 'همه مدارس') return true;
       if (selectedSchoolFilter === 'سایر') return !c.schoolName || !c.schoolName.trim();
-      return c.schoolName === selectedSchoolFilter;
+      return c.schoolName && c.schoolName.trim() === selectedSchoolFilter.trim();
     });
   }, [classrooms, selectedSchoolFilter]);
 
@@ -232,20 +263,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
 
   // Compute registered grades dropdown list
   const availableGrades = useMemo(() => {
-    const list = new Set<string>([
-      'پایه اول ابتدایی',
-      'پایه دوم ابتدایی',
-      'پایه سوم ابتدایی',
-      'پایه چهارم ابتدایی',
-      'پایه پنجم ابتدایی',
-      'پایه ششم ابتدایی',
-      'پایه هفتم (متوسطه اول)',
-      'پایه هشتم (متوسطه اول)',
-      'پایه نهم (متوسطه اول)',
-      'پایه دهم (متوسطه دوم)',
-      'پایه یازدهم (متوسطه دوم)',
-      'پایه دوازدهم (متوسطه دوم)',
-    ]);
+    const list = new Set<string>(GRADE_OPTIONS);
 
     if (classrooms && Array.isArray(classrooms)) {
       classrooms.forEach((c) => {
@@ -276,30 +294,12 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
   }, [showAddModal, classroom, registeredSchools]);
 
   const classStudents = useMemo(() => {
-    if (!filterAvailableSchools.length) {
-      return students.filter((s) => isStudentInClassroom(s, classroom));
-    }
-
     return students.filter((s) => {
-      const studentClass = classrooms.find((c) => c.id === s.classId);
-      const sSchool = s.schoolName || (studentClass ? studentClass.schoolName : undefined);
-      const sGrade = s.grade || (studentClass ? studentClass.grade : undefined);
-
-      if (selectedSchoolFilter) {
-        if (selectedSchoolFilter === 'سایر') {
-          if (sSchool && sSchool.trim()) return false;
-        } else {
-          if (sSchool !== selectedSchoolFilter) return false;
-        }
-      }
-
-      if (selectedGradeFilter) {
-        if (sGrade !== selectedGradeFilter) return false;
-      }
-
+      if (!isStudentInSchool(s, selectedSchoolFilter)) return false;
+      if (!isStudentInGrade(s, selectedGradeFilter)) return false;
       return true;
     });
-  }, [students, classrooms, classroom, selectedSchoolFilter, selectedGradeFilter, filterAvailableSchools]);
+  }, [students, classrooms, selectedSchoolFilter, selectedGradeFilter]);
 
   const filteredStudents = classStudents.filter(
     (s) =>
@@ -345,9 +345,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
             {filterAvailableSchools.length > 0 && (
               <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
                 {filterAvailableSchools.map((school) => {
-                  const count = classrooms.filter((c) =>
-                    school === 'سایر' ? !c.schoolName || !c.schoolName.trim() : c.schoolName === school
-                  ).length;
+                  const count = students.filter((s) => isStudentInSchool(s, school)).length;
 
                   const isSelected = selectedSchoolFilter === school;
 
@@ -444,7 +442,16 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                   key={grade}
                   type="button"
                   onClick={() => {
-                    setSelectedGradeFilter(isSelected ? '' : grade);
+                    const newGrade = isSelected ? '' : grade;
+                    setSelectedGradeFilter(newGrade);
+                    if (newGrade && onSelectClassroom) {
+                      const matchingClass =
+                        classroomsForSchool.find((c) => c.grade === newGrade) ||
+                        classrooms.find((c) => c.grade === newGrade);
+                      if (matchingClass) {
+                        onSelectClassroom(matchingClass);
+                      }
+                    }
                   }}
                   className={`px-3 py-1 rounded-2xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                     isSelected
@@ -464,101 +471,111 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
         )}
       </div>
 
-      {/* Roster Grid / Table */}
-      <div className={`rounded-2xl border shadow-2xs overflow-hidden ${
-        isDarkMode ? 'bg-[#143242] border-slate-700/80' : 'bg-white border-slate-200'
-      }`}>
-        {filteredStudents.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead className={`font-bold border-b uppercase tracking-wider ${
-                isDarkMode ? 'bg-slate-800/80 text-slate-300 border-slate-700' : 'bg-slate-50 text-slate-600 border-slate-200'
-              }`}>
-                <tr>
-                  <th className="px-4 py-3.5">ردیف</th>
-                  <th className="px-4 py-3.5">نام و نام خانوادگی</th>
-                  <th className="px-4 py-3.5">کد دانش‌آموزی</th>
-                  <th className="px-4 py-3.5">نام پدر</th>
-                  <th className="px-4 py-3.5">شماره تماس ولی</th>
-                  <th className="px-4 py-3.5 text-center">عملیات / پروفایل</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                {filteredStudents.map((student, index) => {
-                  return (
-                    <tr key={student.id} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/50 transition-colors">
-                      <td className="px-4 py-3 font-semibold text-slate-400">{index + 1}</td>
-                      <td className="px-4 py-3 font-bold text-slate-800 dark:text-white text-sm">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (onSelectStudentProfile) {
-                              onSelectStudentProfile(student);
-                            } else {
-                              setSelectedStudent(student);
-                            }
-                          }}
-                          className="hover:text-indigo-600 dark:hover:text-teal-300 transition-colors cursor-pointer text-right"
-                        >
-                          {student.fullName}
-                        </button>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-slate-600 dark:text-slate-300">{student.studentCode}</td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300">{student.fatherName || '---'}</td>
-                      <td className="px-4 py-3 text-slate-600 dark:text-slate-300 font-mono">
-                        {student.parentPhone ? (
-                          <a href={`tel:${student.parentPhone}`} className="inline-flex items-center gap-1 text-indigo-600 dark:text-teal-300 hover:underline">
-                            <Phone className="w-3 h-3" />
-                            <span>{student.parentPhone}</span>
-                          </a>
-                        ) : (
-                          '---'
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => {
-                              if (onSelectStudentProfile) {
-                                onSelectStudentProfile(student);
-                              } else {
-                                setSelectedStudent(student);
-                              }
-                            }}
-                            className="p-1.5 text-slate-600 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-teal-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
-                            title="مشاهده پروفایل و پرونده کامل"
-                          >
-                            <FileText className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => onDeleteStudent(student.id)}
-                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors cursor-pointer"
-                            title="حذف دانش‌آموز"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="p-12 text-center text-slate-400 space-y-2">
-            <Users className="w-10 h-10 mx-auto text-slate-300" />
-            <p className="font-bold text-slate-600 dark:text-slate-300 text-sm">دانش‌آموزی یافت نشد</p>
-            <p className="text-xs text-slate-400">با زدن دکمه افزودن دانش‌آموز یا از طریق بخش کدهای اندروید لیست را وارد کنید.</p>
-          </div>
-        )}
-      </div>
+      {/* Roster Cards - Vertical Stack */}
+      {filteredStudents.length > 0 ? (
+        <div className="space-y-2.5">
+          {filteredStudents.map((student, index) => {
+            return (
+              <div 
+                key={student.id} 
+                className={`rounded-2xl border p-4 shadow-2xs hover:shadow-md transition-all flex flex-col justify-between gap-3 ${
+                  isDarkMode ? 'bg-[#1B3E50] border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-800'
+                }`}
+              >
+                {/* Header: Rank + Student Name */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <span className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 font-bold text-xs flex items-center justify-center shrink-0 border border-slate-200/60 dark:border-slate-700">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onSelectStudentProfile) {
+                            onSelectStudentProfile(student);
+                          } else {
+                            setSelectedStudent(student);
+                          }
+                        }}
+                        className="font-bold text-slate-800 dark:text-slate-100 text-sm hover:text-indigo-600 dark:hover:text-teal-300 transition-colors cursor-pointer text-right truncate block w-full"
+                      >
+                        {student.fullName}
+                      </button>
+                      <span className="text-[11px] text-slate-400 dark:text-slate-400 block truncate">
+                        کد: {student.studentCode}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quick Action Buttons */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <button
+                      onClick={() => {
+                        if (onSelectStudentProfile) {
+                          onSelectStudentProfile(student);
+                        } else {
+                          setSelectedStudent(student);
+                        }
+                      }}
+                      className="p-1.5 text-slate-500 dark:text-slate-300 hover:text-indigo-600 dark:hover:text-teal-300 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors cursor-pointer"
+                      title="مشاهده پروفایل و پرونده کامل"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => onDeleteStudent(student.id)}
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 rounded-xl transition-colors cursor-pointer"
+                      title="حذف دانش‌آموز"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Details Footer */}
+                <div className="pt-2 border-t border-slate-100 dark:border-slate-800/80 grid grid-cols-2 gap-2 text-xs text-slate-600 dark:text-slate-300">
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">نام پدر:</span>
+                    <span className="font-semibold text-slate-700 dark:text-slate-200 truncate block">
+                      {student.fatherName || '---'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-slate-400 block">شماره ولی:</span>
+                    {student.parentPhone ? (
+                      <a 
+                        href={`tel:${student.parentPhone}`} 
+                        className="inline-flex items-center gap-1 text-indigo-600 dark:text-teal-300 font-semibold hover:underline truncate"
+                      >
+                        <Phone className="w-3 h-3 shrink-0" />
+                        <span className="dir-ltr">{student.parentPhone}</span>
+                      </a>
+                    ) : (
+                      <span className="text-slate-400">---</span>
+                    )}
+                  </div>
+                </div>
+
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className={`rounded-2xl border p-12 text-center text-slate-400 space-y-2 ${
+          isDarkMode ? 'bg-[#143242] border-slate-700/80' : 'bg-white border-slate-200'
+        }`}>
+          <Users className="w-10 h-10 mx-auto text-slate-300 dark:text-slate-500" />
+          <p className="font-bold text-slate-600 dark:text-slate-300 text-sm">دانش‌آموزی یافت نشد</p>
+          <p className="text-xs text-slate-400">با زدن دکمه افزودن دانش‌آموز یا از طریق بخش کدهای اندروید لیست را وارد کنید.</p>
+        </div>
+      )}
 
       {/* Modal: Add New Student */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className={`rounded-3xl max-w-md w-full p-6 shadow-xl space-y-4 ${
-            isDarkMode ? 'bg-[#102A36] text-white border border-slate-700' : 'bg-white text-slate-800 border border-slate-200'
+            isDarkMode ? 'bg-[#1B3E50] text-white border border-slate-700' : 'bg-white text-slate-800 border border-slate-200'
           }`}>
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-700 pb-3">
               <h3 className="font-bold text-base flex items-center gap-2">
@@ -594,7 +611,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                     value={studentCode}
                     onChange={(e) => setStudentCode(e.target.value)}
                     placeholder="0012345678"
-                    className={`w-full rounded-xl px-3 py-2 border font-mono focus:outline-hidden ${
+                    className={`w-full rounded-xl px-3 py-2 border focus:outline-hidden ${
                       isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}
                   />
@@ -723,7 +740,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                   value={parentPhone}
                   onChange={(e) => setParentPhone(e.target.value)}
                   placeholder="09121112233"
-                  className={`w-full rounded-xl px-3 py-2 border font-mono focus:outline-hidden ${
+                  className={`w-full rounded-xl px-3 py-2 border focus:outline-hidden ${
                     isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                   }`}
                 />
@@ -740,6 +757,16 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                     isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                   }`}
                 />
+              </div>
+
+              {/* Informative Note for Grade-wide Student Auto-linking */}
+              <div className={`p-3 rounded-xl border text-xs leading-relaxed flex items-start gap-2 ${
+                isDarkMode ? 'bg-indigo-950/40 border-indigo-800/60 text-indigo-200' : 'bg-indigo-50 border-indigo-100 text-indigo-900'
+              }`}>
+                <span className="text-base leading-none">💡</span>
+                <div>
+                  <strong>عضویت هم‌زمان در تمام دروس این پایه:</strong> با ثبت این دانش‌آموز، نام وی به‌صورت خودکار در تمام کارت‌های درس مربوط به <strong>{grade || classroom.grade || 'این پایه'}</strong> قرار می‌گیرد و نیازی به تعریف مجدد در دروس دیگر نیست.
+                </div>
               </div>
 
               <div className="pt-2 flex items-center justify-end gap-2">

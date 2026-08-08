@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Classroom, Student, EvaluationSystem } from '../types';
+import { Classroom, Student, EvaluationSystem, GRADE_OPTIONS } from '../types';
 import { isStudentInClassroom } from '../utils/studentUtils';
 import {
   Plus,
@@ -23,12 +23,14 @@ import {
   AlertTriangle,
   School,
   CheckCircle2,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 interface SubjectCardsViewProps {
   classrooms: Classroom[];
   students: Student[];
-  onSelectClassroom: (classroom: Classroom) => void;
+  onSelectClassroom: (classroom: Classroom, autoOpenDetail?: boolean) => void;
   onOpenAddClassModal: () => void;
   onUpdateClassroom: (classroom: Classroom) => void;
   onDeleteClassroom: (classroomId: string) => void;
@@ -89,6 +91,14 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
   const [editAcademicYear, setEditAcademicYear] = useState<string>('');
   const [editEvaluationSystem, setEditEvaluationSystem] = useState<EvaluationSystem>('numeric');
 
+  // Eye toggle state for display on card
+  const [editShowName, setEditShowName] = useState<boolean>(true);
+  const [editShowGrade, setEditShowGrade] = useState<boolean>(true);
+  const [editShowSchoolName, setEditShowSchoolName] = useState<boolean>(true);
+  const [editShowAcademicYear, setEditShowAcademicYear] = useState<boolean>(false);
+  const [editShowStudentCount, setEditShowStudentCount] = useState<boolean>(false);
+  const [editShowEvaluationSystem, setEditShowEvaluationSystem] = useState<boolean>(false);
+
   // Open edit modal
   const handleStartEdit = (cls: Classroom) => {
     setEditingClassroom(cls);
@@ -98,12 +108,18 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
     setEditSchoolName(cls.schoolName || '');
     setEditAcademicYear(cls.academicYear);
     setEditEvaluationSystem(cls.evaluationSystem);
+    setEditShowName(cls.showName ?? true);
+    setEditShowGrade(cls.showGrade ?? true);
+    setEditShowSchoolName(cls.showSchoolName ?? true);
+    setEditShowAcademicYear(cls.showAcademicYear ?? false);
+    setEditShowStudentCount(cls.showStudentCount ?? false);
+    setEditShowEvaluationSystem(cls.showEvaluationSystem ?? false);
   };
 
   // Submit edit form
   const handleSaveEdit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!editingClassroom || !editSubject.trim() || !editName.trim()) return;
+    if (!editingClassroom || !editSubject.trim()) return;
 
     onUpdateClassroom({
       ...editingClassroom,
@@ -113,6 +129,12 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
       schoolName: editSchoolName.trim(),
       academicYear: editAcademicYear.trim(),
       evaluationSystem: editEvaluationSystem,
+      showName: editShowName,
+      showGrade: editShowGrade,
+      showSchoolName: editShowSchoolName,
+      showAcademicYear: editShowAcademicYear,
+      showStudentCount: editShowStudentCount,
+      showEvaluationSystem: editShowEvaluationSystem,
     });
 
     setEditingClassroom(null);
@@ -300,10 +322,22 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
       
       {/* Top Header & Actions with School Filters on same row */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b pb-3 border-slate-200 dark:border-slate-800">
-        <div className="flex items-center gap-3 overflow-x-auto scrollbar-none py-0.5 min-w-0">
-          <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white shrink-0">
-            داشبورد
-          </h1>
+        <div className="flex items-center gap-2.5 overflow-x-auto scrollbar-none py-0.5 min-w-0">
+          <div className="flex items-center gap-2 shrink-0">
+            <h1 className="text-xl sm:text-2xl font-black text-slate-800 dark:text-white shrink-0">
+              داشبورد
+            </h1>
+
+            {/* Mobile-only smaller Add Class Button right next to 'داشبورد' */}
+            <button
+              type="button"
+              onClick={onOpenAddClassModal}
+              title="افزودن درس / کلاس جدید"
+              className="md:hidden w-7 h-7 rounded-full bg-indigo-600 hover:bg-indigo-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white flex items-center justify-center shadow-xs hover:scale-105 transition-all cursor-pointer shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
 
           {/* School Filter Chips directly next to 'داشبورد' */}
           {availableSchools.length > 0 && (
@@ -321,6 +355,20 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                     type="button"
                     onClick={() => {
                       setSelectedSchoolFilter(school);
+                      const schoolClasses = classrooms.filter((c) =>
+                        school === 'سایر'
+                          ? !c.schoolName || !c.schoolName.trim()
+                          : c.schoolName === school
+                      );
+                      if (schoolClasses.length > 0) {
+                        const matchingClass =
+                          selectedGradeFilter && selectedGradeFilter !== 'همه'
+                            ? schoolClasses.find((c) => c.grade === selectedGradeFilter) || schoolClasses[0]
+                            : schoolClasses[0];
+                        if (matchingClass) {
+                          onSelectClassroom(matchingClass, false);
+                        }
+                      }
                     }}
                     className={`px-3 py-1 rounded-2xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                       isSelected
@@ -340,8 +388,8 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
           )}
         </div>
 
-        <div className="flex items-center gap-2 shrink-0 self-end md:self-auto">
-          {/* Add New Subject Circular Button with + inside */}
+        <div className="hidden md:flex items-center gap-2 shrink-0 self-end md:self-auto">
+          {/* Add New Subject Circular Button with + inside (Desktop view) */}
           <button
             type="button"
             onClick={onOpenAddClassModal}
@@ -365,7 +413,16 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                 key={grade}
                 type="button"
                 onClick={() => {
-                  setSelectedGradeFilter(grade);
+                  const newGrade = selectedGradeFilter === grade ? 'همه' : grade;
+                  setSelectedGradeFilter(newGrade);
+                  if (newGrade && newGrade !== 'همه') {
+                    const matchingClass =
+                      classroomsForSchool.find((c) => c.grade === newGrade) ||
+                      classrooms.find((c) => c.grade === newGrade);
+                    if (matchingClass) {
+                      onSelectClassroom(matchingClass, false);
+                    }
+                  }
                 }}
                 className={`px-3 py-1 rounded-2xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
                   isSelected
@@ -385,92 +442,172 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
       )}
 
       {/* Grid of Subject Cards */}
-      {filteredClassrooms.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredClassrooms.map((cls) => {
-            const classStudentCount = students.filter((s) => isStudentInClassroom(s, cls)).length;
-            const { icon, bgColor } = getSubjectIcon(cls.subject);
+      {filteredClassrooms.length > 0 ? (() => {
+        const getCardDetailsCount = (cls: Classroom) => {
+          let count = 0;
+          if ((cls.showSchoolName ?? true) && cls.schoolName) count++;
+          const hasSubText = ((cls.showGrade ?? true) && cls.grade) || ((cls.showName ?? true) && cls.name) || (cls.showAcademicYear && cls.academicYear);
+          if (hasSubText) count++;
+          if (cls.showStudentCount || cls.showEvaluationSystem) count++;
+          return count;
+        };
 
-            return (
-              <div
-                key={cls.id}
-                onClick={() => onSelectClassroom(cls)}
-                className={`group relative rounded-3xl p-4 sm:p-5 border transition-all cursor-pointer shadow-2xs hover:shadow-lg hover:-translate-y-0.5 flex items-center justify-between gap-3 ${
-                  isDarkMode
-                    ? 'bg-[#143242] border-slate-700/80 hover:bg-[#184255] hover:border-teal-400 hover:shadow-teal-500/15 text-white'
-                    : 'bg-white border-slate-200 hover:border-indigo-300 text-slate-800'
-                }`}
-              >
-                {/* Subject Title & Details */}
-                <div className="flex-1 space-y-1 text-right min-w-0">
-                  <div className="flex items-center justify-between gap-1">
-                    <h3 className="text-base sm:text-lg font-black truncate text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-teal-300 transition-colors">
-                      {cls.subject}
-                    </h3>
+        const maxDetails = Math.max(...filteredClassrooms.map(getCardDetailsCount), 0);
+
+        const gridClasses = maxDetails === 0
+          ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5"
+          : maxDetails === 1
+          ? "grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
+          : "grid grid-cols-1 md:grid-cols-2 gap-4";
+
+        return (
+          <div className={gridClasses}>
+            {filteredClassrooms.map((cls) => {
+              const classStudentCount = students.filter((s) => isStudentInClassroom(s, cls)).length;
+              const detailsCount = getCardDetailsCount(cls);
+
+              let cardPaddingClass = 'p-4 sm:p-5 rounded-3xl gap-3';
+              let titleSizeClass = 'text-base sm:text-lg';
+              let actionBtnClass = 'p-1.5 rounded-xl';
+              let actionIconClass = 'w-3.5 h-3.5';
+              let chevronClass = 'w-5 h-5';
+
+              if (detailsCount === 0) {
+                cardPaddingClass = 'py-2.5 px-3 rounded-2xl gap-1.5';
+                titleSizeClass = 'text-xs sm:text-sm';
+                actionBtnClass = 'p-1 rounded-lg';
+                actionIconClass = 'w-3 h-3';
+                chevronClass = 'w-3.5 h-3.5';
+              } else if (detailsCount === 1) {
+                cardPaddingClass = 'p-3 sm:p-3.5 rounded-2xl gap-2';
+                titleSizeClass = 'text-sm sm:text-base';
+                actionBtnClass = 'p-1 rounded-lg';
+                actionIconClass = 'w-3.5 h-3.5';
+                chevronClass = 'w-4 h-4';
+              }
+
+              return (
+                <div
+                  key={cls.id}
+                  onClick={() => onSelectClassroom(cls)}
+                  className={`group relative border transition-all cursor-pointer shadow-2xs hover:shadow-lg hover:-translate-y-0.5 flex items-center justify-between ${cardPaddingClass} ${
+                    isDarkMode
+                      ? 'bg-[#143242] border-slate-700/80 hover:bg-[#184255] hover:border-teal-400 hover:shadow-teal-500/15 text-white'
+                      : 'bg-white border-slate-200 hover:border-indigo-300 text-slate-800'
+                  }`}
+                >
+                  {/* Subject Title & Details */}
+                  <div className="flex-1 space-y-0.5 text-right min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <h3 className={`${titleSizeClass} font-black truncate text-slate-800 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-teal-300 transition-colors`}>
+                        {cls.subject}
+                      </h3>
+                    </div>
+
+                    {(cls.showSchoolName ?? true) && cls.schoolName && (
+                      <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-teal-300 truncate">
+                        <School className="w-3 h-3 shrink-0" />
+                        <span className="truncate">{cls.schoolName}</span>
+                      </div>
+                    )}
+
+                    {((cls.showGrade ?? true) || (cls.showName ?? true) || cls.showAcademicYear) && (
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">
+                        {[
+                          (cls.showGrade ?? true) ? cls.grade : null,
+                          (cls.showName ?? true) ? cls.name : null,
+                          cls.showAcademicYear ? cls.academicYear : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' • ')}
+                      </p>
+                    )}
+
+                    {(cls.showStudentCount || cls.showEvaluationSystem) && (
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        {cls.showStudentCount && (
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                            <Users className="w-3 h-3 text-indigo-500 dark:text-teal-400" />
+                            <span>{classStudentCount} دانش‌آموز</span>
+                          </span>
+                        )}
+
+                        {cls.showEvaluationSystem && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
+                            {cls.evaluationSystem === 'numeric' ? 'عددی' : 'توصیفی'}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </div>
 
-                  {cls.schoolName && (
-                    <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 dark:text-teal-300 truncate">
-                      <School className="w-3 h-3 shrink-0" />
-                      <span className="truncate">{cls.schoolName}</span>
+                  {/* Action Buttons & Arrow */}
+                  {detailsCount === 0 ? (
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        title="ویرایش درس"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleStartEdit(cls);
+                        }}
+                        className={`${actionBtnClass} bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/80 hover:text-indigo-600 dark:hover:text-teal-300 transition-colors cursor-pointer`}
+                      >
+                        <Edit2 className={actionIconClass} />
+                      </button>
+                      <button
+                        type="button"
+                        title="حذف درس"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeletingClassroom(cls);
+                        }}
+                        className={`${actionBtnClass} bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-rose-100 dark:hover:bg-rose-950/80 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer`}
+                      >
+                        <Trash2 className={actionIconClass} />
+                      </button>
+                      <div className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-600 dark:group-hover:text-teal-300 transition-colors mr-0.5">
+                        <ChevronLeft className={chevronClass} />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-end justify-between self-stretch shrink-0 gap-2">
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          title="ویرایش درس"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStartEdit(cls);
+                          }}
+                          className={`${actionBtnClass} bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/80 hover:text-indigo-600 dark:hover:text-teal-300 transition-colors cursor-pointer`}
+                        >
+                          <Edit2 className={actionIconClass} />
+                        </button>
+                        <button
+                          type="button"
+                          title="حذف درس"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeletingClassroom(cls);
+                          }}
+                          className={`${actionBtnClass} bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-rose-100 dark:hover:bg-rose-950/80 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer`}
+                        >
+                          <Trash2 className={actionIconClass} />
+                        </button>
+                      </div>
+
+                      <div className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-600 dark:group-hover:text-teal-300 transition-colors">
+                        <ChevronLeft className={chevronClass} />
+                      </div>
                     </div>
                   )}
-
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">
-                    {cls.grade} • {cls.name}
-                  </p>
-
-                  <div className="flex items-center gap-2 pt-0.5">
-                    <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-400">
-                      <Users className="w-3 h-3 text-slate-400" />
-                      <span>{classStudentCount} دانش‌آموز</span>
-                    </span>
-
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
-                      {cls.evaluationSystem === 'numeric' ? 'عددی' : 'توصیفی'}
-                    </span>
-                  </div>
                 </div>
-
-                {/* Action Buttons & Arrow */}
-                <div className="flex flex-col items-end justify-between self-stretch shrink-0 gap-2">
-                  {/* Edit and Delete Buttons */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      title="ویرایش درس"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStartEdit(cls);
-                      }}
-                      className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/80 hover:text-indigo-600 dark:hover:text-teal-300 transition-colors cursor-pointer"
-                    >
-                      <Edit2 className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      title="حذف درس"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setDeletingClassroom(cls);
-                      }}
-                      className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-rose-100 dark:hover:bg-rose-950/80 hover:text-rose-600 dark:hover:text-rose-400 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="text-slate-300 dark:text-slate-600 group-hover:text-indigo-600 dark:group-hover:text-teal-300 transition-colors">
-                    <ChevronLeft className="w-5 h-5" />
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-
-
-        </div>
-      ) : (
+              );
+            })}
+          </div>
+        );
+      })() : (
         <div className="p-12 text-center text-slate-400 space-y-3 border rounded-3xl border-dashed border-slate-300 dark:border-slate-800">
           <Book className="w-12 h-12 mx-auto text-slate-300 dark:text-slate-700" />
           <h3 className="font-bold text-base text-slate-700 dark:text-slate-300">هیچ درسی یافت نشد</h3>
@@ -491,7 +628,7 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
       {/* Edit Subject Modal */}
       {editingClassroom && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#102A36] dark:text-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200 dark:border-slate-700">
+          <div className="bg-white dark:bg-[#1B3E50] dark:text-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200 dark:border-slate-700">
             <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
               <h3 className="font-bold text-slate-800 dark:text-white text-base flex items-center gap-2">
                 <Edit2 className="w-5 h-5 text-indigo-600 dark:text-teal-400" />
@@ -507,8 +644,12 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
             </div>
 
             <form onSubmit={handleSaveEdit} className="space-y-3.5 text-xs font-medium text-slate-700 dark:text-slate-300">
+              {/* Subject Name - Mandatory on card */}
               <div className="space-y-1">
-                <label className="font-bold">نام درس *</label>
+                <div className="flex items-center justify-between">
+                  <label className="font-bold">نام درس *</label>
+                  <span className="text-[10px] text-slate-400 font-normal">نمایش همیشگی روی کارت</span>
+                </div>
                 <input
                   type="text"
                   required
@@ -519,8 +660,24 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                 />
               </div>
 
+              {/* School Name - Eye toggle */}
               <div className="space-y-1">
-                <label className="font-bold">نام مدرسه</label>
+                <div className="flex items-center justify-between">
+                  <label className="font-bold">نام مدرسه</label>
+                  <button
+                    type="button"
+                    onClick={() => setEditShowSchoolName(!editShowSchoolName)}
+                    title={editShowSchoolName ? 'نمایش نام مدرسه روی کارت' : 'عدم نمایش نام مدرسه روی کارت'}
+                    className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                      editShowSchoolName
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-teal-950/60 dark:border-teal-800 dark:text-teal-300 font-bold'
+                        : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500'
+                    }`}
+                  >
+                    {editShowSchoolName ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    <span className="text-[10px]">{editShowSchoolName ? 'نمایش در کارت' : 'عدم نمایش'}</span>
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={editSchoolName}
@@ -530,33 +687,85 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                 />
               </div>
 
+              {/* Class Name - Eye toggle */}
               <div className="space-y-1">
-                <label className="font-bold">نام کلاس *</label>
+                <div className="flex items-center justify-between">
+                  <label className="font-bold">نام کلاس (اختیاری)</label>
+                  <button
+                    type="button"
+                    onClick={() => setEditShowName(!editShowName)}
+                    title={editShowName ? 'نمایش نام کلاس روی کارت' : 'عدم نمایش نام کلاس روی کارت'}
+                    className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                      editShowName
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-teal-950/60 dark:border-teal-800 dark:text-teal-300 font-bold'
+                        : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500'
+                    }`}
+                  >
+                    {editShowName ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    <span className="text-[10px]">{editShowName ? 'نمایش در کارت' : 'عدم نمایش'}</span>
+                  </button>
+                </div>
                 <input
                   type="text"
-                  required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  placeholder="مثلا: کلاس ۳A"
+                  placeholder="مثلا: کلاس ۳A (اختیاری)"
                   className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 dark:focus:ring-teal-400"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                {/* Grade - Eye toggle */}
                 <div className="space-y-1">
-                  <label className="font-bold">پایه تحصیلی *</label>
-                  <input
-                    type="text"
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold">پایه تحصیلی *</label>
+                    <button
+                      type="button"
+                      onClick={() => setEditShowGrade(!editShowGrade)}
+                      title={editShowGrade ? 'نمایش پایه تحصیلی روی کارت' : 'عدم نمایش پایه روی کارت'}
+                      className={`flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                        editShowGrade
+                          ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-teal-950/60 dark:border-teal-800 dark:text-teal-300 font-bold'
+                          : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500'
+                      }`}
+                    >
+                      {editShowGrade ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                  <select
                     required
                     value={editGrade}
                     onChange={(e) => setEditGrade(e.target.value)}
-                    placeholder="مثلا: پایه سوم"
-                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-white focus:ring-2 focus:ring-indigo-500 dark:focus:ring-teal-400"
-                  />
+                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-white font-bold focus:ring-2 focus:ring-indigo-500 dark:focus:ring-teal-400 cursor-pointer"
+                  >
+                    {!GRADE_OPTIONS.includes(editGrade) && editGrade && (
+                      <option value={editGrade}>{editGrade}</option>
+                    )}
+                    {GRADE_OPTIONS.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
+                {/* Academic Year - Eye toggle */}
                 <div className="space-y-1">
-                  <label className="font-bold">سال تحصیلی</label>
+                  <div className="flex items-center justify-between">
+                    <label className="font-bold">سال تحصیلی</label>
+                    <button
+                      type="button"
+                      onClick={() => setEditShowAcademicYear(!editShowAcademicYear)}
+                      title={editShowAcademicYear ? 'نمایش سال تحصیلی روی کارت' : 'عدم نمایش سال تحصیلی روی کارت'}
+                      className={`flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                        editShowAcademicYear
+                          ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-teal-950/60 dark:border-teal-800 dark:text-teal-300 font-bold'
+                          : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500'
+                      }`}
+                    >
+                      {editShowAcademicYear ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                   <input
                     type="text"
                     value={editAcademicYear}
@@ -567,8 +776,24 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                 </div>
               </div>
 
+              {/* Evaluation System - Eye toggle */}
               <div className="space-y-1">
-                <label className="font-bold">سیستم ارزشیابی *</label>
+                <div className="flex items-center justify-between">
+                  <label className="font-bold">سیستم ارزشیابی *</label>
+                  <button
+                    type="button"
+                    onClick={() => setEditShowEvaluationSystem(!editShowEvaluationSystem)}
+                    title={editShowEvaluationSystem ? 'نمایش سیستم ارزشیابی روی کارت' : 'عدم نمایش روی کارت'}
+                    className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                      editShowEvaluationSystem
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-teal-950/60 dark:border-teal-800 dark:text-teal-300 font-bold'
+                        : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500'
+                    }`}
+                  >
+                    {editShowEvaluationSystem ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    <span className="text-[10px]">{editShowEvaluationSystem ? 'نمایش در کارت' : 'عدم نمایش'}</span>
+                  </button>
+                </div>
                 <select
                   value={editEvaluationSystem}
                   onChange={(e) => setEditEvaluationSystem(e.target.value as EvaluationSystem)}
@@ -577,6 +802,27 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                   <option value="numeric">عددی (نمره‌دهی ۰ الی ۲۰)</option>
                   <option value="descriptive">توصیفی (خیلی خوب، خوب، قابل قبول...)</option>
                 </select>
+              </div>
+
+              {/* Student Count - Eye toggle */}
+              <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                <span className="font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-slate-500 dark:text-slate-400" />
+                  <span>تعداد / آمار دانش‌آموزان</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEditShowStudentCount(!editShowStudentCount)}
+                  title={editShowStudentCount ? 'نمایش تعداد دانش‌آموزان روی کارت' : 'عدم نمایش روی کارت'}
+                  className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                    editShowStudentCount
+                      ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-teal-950/60 dark:border-teal-800 dark:text-teal-300 font-bold'
+                      : 'bg-slate-100 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500'
+                  }`}
+                >
+                  {editShowStudentCount ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  <span className="text-[10px]">{editShowStudentCount ? 'نمایش در کارت' : 'عدم نمایش'}</span>
+                </button>
               </div>
 
               <div className="pt-3 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
@@ -602,7 +848,7 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
       {/* Delete Confirmation Modal */}
       {deletingClassroom && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-[#102A36] dark:text-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 border border-slate-200 dark:border-slate-700 text-center">
+          <div className="bg-white dark:bg-[#1B3E50] dark:text-white rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 border border-slate-200 dark:border-slate-700 text-center">
             <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/80 text-rose-600 dark:text-rose-400 flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />
             </div>
@@ -612,7 +858,7 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                 حذف کارت درس {deletingClassroom.subject}
               </h3>
               <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
-                آیا از حذف کارت درس <strong className="text-slate-800 dark:text-white">{deletingClassroom.subject} ({deletingClassroom.grade} - {deletingClassroom.name})</strong> اطمینان دارید؟
+                آیا از حذف کارت درس <strong className="text-slate-800 dark:text-white">{deletingClassroom.subject} ({deletingClassroom.grade}{deletingClassroom.name ? ` - ${deletingClassroom.name}` : ''})</strong> اطمینان دارید؟
               </p>
             </div>
 

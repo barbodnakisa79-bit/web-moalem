@@ -48,7 +48,7 @@ export const BehaviorTracker: React.FC<BehaviorTrackerProps> = ({
     <div className="space-y-3.5">
       <div className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs">
         <div>
-          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
             <ThumbsUp className="w-5 h-5 text-amber-500" />
             <span>تشویق و انضباط</span>
           </h2>
@@ -148,7 +148,7 @@ export const BehaviorTracker: React.FC<BehaviorTrackerProps> = ({
       {/* Student Badges Roster */}
       <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
         <h3 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2">جدول امتیازات دانش‌آموزان</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="space-y-2.5">
           {classStudents.map((st) => {
             const stPoints = classPoints.filter((p) => p.studentId === st.id);
             const totalScore = stPoints.reduce((acc, p) => acc + p.scoreValue, 0);

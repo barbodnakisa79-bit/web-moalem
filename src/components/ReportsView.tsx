@@ -49,7 +49,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
       {/* Top Bar */}
       <div className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
         <div>
-          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
             <BarChart3 className="w-5 h-5 text-indigo-600" />
             <span>آمار، گزارشات و صدور کارنامه کلاسی</span>
           </h2>
@@ -125,7 +125,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({
               </div>
               <div>
                 <span className="text-slate-400 block">کد دانش‌آموزی:</span>
-                <span className="font-mono font-bold text-slate-800">{selectedStudent.studentCode}</span>
+                <span className="font-bold text-slate-800">{selectedStudent.studentCode}</span>
               </div>
               <div>
                 <span className="text-slate-400 block">نام پدر:</span>

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Classroom, ClassJournalEntry, Student, ScoreRecord, AttendanceRecord, BehavioralPoint } from '../types';
+import { isStudentInClassroom } from '../utils/studentUtils';
 import { BookOpen, Plus, Save, CheckCircle2, BarChart3, ThumbsUp } from 'lucide-react';
 import { ShamsiDatePicker } from './ShamsiDatePicker';
 import { isoStringToJalali, formatJalaliDate } from '../utils/jalali';
@@ -16,6 +17,7 @@ interface JournalManagerProps {
   behavioralPoints?: BehavioralPoint[];
   onAddBehaviorPoint?: (point: BehavioralPoint) => void;
   defaultTab?: 'journal' | 'behavior' | 'reports';
+  isDarkMode?: boolean;
 }
 
 export const JournalManager: React.FC<JournalManagerProps> = ({
@@ -28,6 +30,7 @@ export const JournalManager: React.FC<JournalManagerProps> = ({
   behavioralPoints = [],
   onAddBehaviorPoint,
   defaultTab = 'journal',
+  isDarkMode = false,
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<'journal' | 'behavior' | 'reports'>(defaultTab);
 
@@ -39,6 +42,21 @@ export const JournalManager: React.FC<JournalManagerProps> = ({
   const [absentCount, setAbsentCount] = useState<number>(0);
   const [generalNotes, setGeneralNotes] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // Sync absent count automatically from attendance records
+  useEffect(() => {
+    const classStudentIds = new Set(
+      students.filter((s) => isStudentInClassroom(s, classroom)).map((s) => s.id)
+    );
+    const dayAttendance = attendance.filter(
+      (a) => a.classId === classroom.id && a.date === date && classStudentIds.has(a.studentId)
+    );
+    const calculatedAbsentCount = dayAttendance.filter(
+      (a) => a.status === 'absent' || a.status === 'excused'
+    ).length;
+
+    setAbsentCount(calculatedAbsentCount);
+  }, [date, classroom.id, attendance, students]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,7 +85,7 @@ export const JournalManager: React.FC<JournalManagerProps> = ({
       {/* Top Banner & Header */}
       <div className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+          <h2 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
             <BookOpen className="w-5 h-5 text-teal-600" />
             <span>گزارش روزانه و ارزیابی رفتار</span>
           </h2>
@@ -76,26 +94,26 @@ export const JournalManager: React.FC<JournalManagerProps> = ({
       </div>
 
       {/* Three Navigation Cards in a single row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-1.5 sm:gap-3">
         {/* Card 1: Daily Journal */}
         <button
           type="button"
           onClick={() => setActiveSubTab('journal')}
-          className={`p-3.5 rounded-2xl border text-right transition-all flex items-center justify-center sm:justify-start gap-3 cursor-pointer relative overflow-hidden h-full ${
+          className={`p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border text-center sm:text-right transition-all flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1.5 sm:gap-3 cursor-pointer relative overflow-hidden h-full ${
             activeSubTab === 'journal'
               ? 'bg-teal-50/70 border-teal-500 ring-2 ring-teal-500/20 shadow-xs'
               : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
           }`}
         >
-          <div className={`p-2.5 rounded-xl shrink-0 ${
+          <div className={`p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl shrink-0 ${
             activeSubTab === 'journal'
               ? 'bg-teal-600 text-white shadow-xs'
               : 'bg-slate-100 text-slate-600'
           }`}>
-            <BookOpen className="w-5 h-5" />
+            <BookOpen className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
-            <div className={`font-bold text-sm ${
+            <div className={`font-bold text-[11px] sm:text-sm ${
               activeSubTab === 'journal' ? 'text-teal-900' : 'text-slate-800'
             }`}>
               گزارش روزانه
@@ -107,21 +125,21 @@ export const JournalManager: React.FC<JournalManagerProps> = ({
         <button
           type="button"
           onClick={() => setActiveSubTab('behavior')}
-          className={`p-3.5 rounded-2xl border text-right transition-all flex items-center justify-center sm:justify-start gap-3 cursor-pointer relative overflow-hidden h-full ${
+          className={`p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border text-center sm:text-right transition-all flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1.5 sm:gap-3 cursor-pointer relative overflow-hidden h-full ${
             activeSubTab === 'behavior'
               ? 'bg-amber-50/70 border-amber-500 ring-2 ring-amber-500/20 shadow-xs'
               : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
           }`}
         >
-          <div className={`p-2.5 rounded-xl shrink-0 ${
+          <div className={`p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl shrink-0 ${
             activeSubTab === 'behavior'
               ? 'bg-amber-500 text-white shadow-xs'
               : 'bg-slate-100 text-slate-600'
           }`}>
-            <ThumbsUp className="w-5 h-5" />
+            <ThumbsUp className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
-            <div className={`font-bold text-sm ${
+            <div className={`font-bold text-[11px] sm:text-sm ${
               activeSubTab === 'behavior' ? 'text-amber-900' : 'text-slate-800'
             }`}>
               امتیازات و تشویق
@@ -133,21 +151,21 @@ export const JournalManager: React.FC<JournalManagerProps> = ({
         <button
           type="button"
           onClick={() => setActiveSubTab('reports')}
-          className={`p-3.5 rounded-2xl border text-right transition-all flex items-center justify-center sm:justify-start gap-3 cursor-pointer relative overflow-hidden h-full ${
+          className={`p-2 sm:p-3.5 rounded-xl sm:rounded-2xl border text-center sm:text-right transition-all flex flex-col sm:flex-row items-center justify-center sm:justify-start gap-1.5 sm:gap-3 cursor-pointer relative overflow-hidden h-full ${
             activeSubTab === 'reports'
               ? 'bg-indigo-50/70 border-indigo-500 ring-2 ring-indigo-500/20 shadow-xs'
               : 'bg-white border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
           }`}
         >
-          <div className={`p-2.5 rounded-xl shrink-0 ${
+          <div className={`p-1.5 sm:p-2.5 rounded-lg sm:rounded-xl shrink-0 ${
             activeSubTab === 'reports'
               ? 'bg-indigo-600 text-white shadow-xs'
               : 'bg-slate-100 text-slate-600'
           }`}>
-            <BarChart3 className="w-5 h-5" />
+            <BarChart3 className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
           <div>
-            <div className={`font-bold text-sm ${
+            <div className={`font-bold text-[11px] sm:text-sm ${
               activeSubTab === 'reports' ? 'text-indigo-900' : 'text-slate-800'
             }`}>
               آمار و گزارشات
@@ -167,29 +185,33 @@ export const JournalManager: React.FC<JournalManagerProps> = ({
           )}
 
           {/* New Journal Form */}
-          <form onSubmit={handleSubmit} className="bg-white rounded-2xl border border-slate-200 p-5 shadow-2xs space-y-4">
-            <h3 className="font-bold text-slate-800 text-sm border-b border-slate-100 pb-2 flex items-center gap-2">
-              <Plus className="w-4 h-4 text-teal-600" />
+          <form onSubmit={handleSubmit} className={`rounded-2xl border p-5 shadow-2xs space-y-4 relative z-30 ${
+            isDarkMode ? 'bg-[#1B3E50] border-slate-700/80 text-white' : 'bg-white border-slate-200 text-slate-800'
+          }`}>
+            <h3 className="font-bold text-sm border-b border-slate-100 dark:border-slate-700 pb-2 flex items-center gap-2">
+              <Plus className="w-4 h-4 text-teal-600 dark:text-teal-400" />
               <span>ثبت گزارش جلسه جدید</span>
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-medium text-slate-700">
-              <div className="space-y-1">
-                <label className="block font-bold">تاریخ جلسه *</label>
+            <div className="grid grid-cols-2 gap-2 sm:gap-4 text-xs font-medium">
+              <div className="space-y-1 relative z-50">
+                <label className="block font-bold text-[11px] sm:text-xs">تاریخ جلسه *</label>
                 <ShamsiDatePicker
                   selectedDateIso={date}
                   onChange={(isoStr) => setDate(isoStr)}
+                  isDarkMode={isDarkMode}
+                  align="left"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="block font-bold">تعداد غایبین امروز</label>
+                <label className="block font-bold text-[11px] sm:text-xs truncate">تعداد غایبین امروز</label>
                 <input
                   type="number"
                   min={0}
                   value={absentCount}
                   onChange={(e) => setAbsentCount(Number(e.target.value))}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 focus:ring-2 focus:ring-teal-500"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 sm:px-3 py-1.5 sm:py-2 text-xs text-center sm:text-right font-bold text-slate-800 focus:ring-2 focus:ring-teal-500"
                 />
               </div>
             </div>
@@ -248,7 +270,7 @@ export const JournalManager: React.FC<JournalManagerProps> = ({
                   <div key={j.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-xs space-y-2">
                     <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
                       <span className="font-bold text-slate-800 text-sm">{j.topicTaught}</span>
-                      <span className="text-slate-500 font-medium">{formatJalaliDate(isoStringToJalali(j.date), true)} | غایبین: {j.absentCount} نفر</span>
+                      <span className="text-slate-500 font-medium">{formatJalaliDate(isoStringToJalali(j.date), false)} | غایبین: {j.absentCount} نفر</span>
                     </div>
                     {j.homeworkAssigned && (
                       <div>

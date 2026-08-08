@@ -20,6 +20,7 @@ interface ShamsiDatePickerProps {
   label?: string;
   isDarkMode?: boolean;
   inline?: boolean;
+  align?: 'right' | 'left' | 'center' | 'auto';
 }
 
 export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
@@ -28,7 +29,9 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
   label = 'تاریخ',
   isDarkMode = false,
   inline = false,
+  align = 'auto',
 }) => {
+  const isDark = isDarkMode || (typeof document !== 'undefined' && document.documentElement.classList.contains('dark'));
   const selectedJalali = isoStringToJalali(selectedDateIso);
   const today = getTodayJalali();
 
@@ -67,7 +70,7 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
   const handleSelectDay = (dayNum: number) => {
     const targetJalali: JalaliDate = { jy: viewJalali.jy, jm: viewJalali.jm, jd: dayNum };
     const isoStr = jalaliToIsoString(targetJalali);
-    const jalaliStr = formatJalaliDate(targetJalali, true);
+    const jalaliStr = formatJalaliDate(targetJalali, false);
     onChange(isoStr, jalaliStr);
     if (!inline) {
       setIsOpen(false);
@@ -80,18 +83,18 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
 
   const calendarGrid = (
     <div className={`p-4 rounded-2xl border transition-all ${
-      isDarkMode
-        ? 'bg-[#102A36] border-slate-700/80 text-white shadow-xl'
-        : 'bg-white border-slate-200 text-slate-800 shadow-lg'
+      isDark
+        ? 'bg-[#0F2834] border-slate-600 text-white shadow-2xl shadow-slate-950/90 ring-1 ring-slate-700/80'
+        : 'bg-white border-slate-200 text-slate-800 shadow-xl'
     }`}>
       {/* Month & Year Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-200/50 mb-3">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-200/50 dark:border-slate-700/80 mb-3">
         <button
           type="button"
           onClick={handleNextMonth}
           title="ماه بعدی"
           className={`p-1.5 rounded-xl border transition-colors ${
-            isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-200' : 'border-slate-200 hover:bg-slate-100 text-slate-700'
+            isDark ? 'border-slate-700 hover:bg-slate-800 text-slate-200' : 'border-slate-200 hover:bg-slate-100 text-slate-700'
           }`}
         >
           <ChevronRight className="w-4 h-4" />
@@ -102,8 +105,8 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
             value={viewJalali.jm}
             onChange={(e) => setViewJalali({ ...viewJalali, jm: Number(e.target.value) })}
             className={`font-bold text-xs rounded-lg px-2 py-1 border focus:outline-hidden cursor-pointer ${
-              isDarkMode
-                ? 'bg-[#143242] border-slate-700 text-teal-300 [&>option]:bg-[#102A36] [&>option]:text-white'
+              isDark
+                ? 'bg-[#183B4D] border-slate-600 text-teal-300 [&>option]:bg-[#0F2834] [&>option]:text-white'
                 : 'bg-slate-100 border-slate-200 text-indigo-700'
             }`}
           >
@@ -118,8 +121,8 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
             value={viewJalali.jy}
             onChange={(e) => setViewJalali({ ...viewJalali, jy: Number(e.target.value) })}
             className={`font-bold text-xs rounded-lg px-2 py-1 border focus:outline-hidden cursor-pointer ${
-              isDarkMode
-                ? 'bg-[#143242] border-slate-700 text-teal-300 [&>option]:bg-[#102A36] [&>option]:text-white'
+              isDark
+                ? 'bg-[#183B4D] border-slate-600 text-teal-300 [&>option]:bg-[#0F2834] [&>option]:text-white'
                 : 'bg-slate-100 border-slate-200 text-indigo-700'
             }`}
           >
@@ -136,7 +139,7 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
           onClick={handlePrevMonth}
           title="ماه قبلی"
           className={`p-1.5 rounded-xl border transition-colors ${
-            isDarkMode ? 'border-slate-700 hover:bg-slate-800 text-slate-200' : 'border-slate-200 hover:bg-slate-100 text-slate-700'
+            isDark ? 'border-slate-700 hover:bg-slate-800 text-slate-200' : 'border-slate-200 hover:bg-slate-100 text-slate-700'
           }`}
         >
           <ChevronLeft className="w-4 h-4" />
@@ -153,7 +156,7 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
                 ? 'text-rose-500'
                 : idx === 5
                 ? 'text-amber-500'
-                : isDarkMode
+                : isDark
                 ? 'text-slate-400'
                 : 'text-slate-500'
             }`}
@@ -192,18 +195,18 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
               title={holiday.title || (isToday ? 'امروز' : undefined)}
               className={`relative h-8 w-full rounded-xl font-bold flex flex-col items-center justify-center transition-all cursor-pointer ${
                 isSelected
-                  ? isDarkMode
+                  ? isDark
                     ? 'bg-teal-400 text-slate-950 font-black shadow-md ring-2 ring-teal-300'
                     : 'bg-indigo-600 text-white font-black shadow-md ring-2 ring-indigo-300'
                   : isToday
-                  ? isDarkMode
+                  ? isDark
                     ? 'border-2 border-teal-400 text-teal-300 bg-teal-950/40'
                     : 'border-2 border-indigo-500 text-indigo-700 bg-indigo-50'
                   : holiday.isHoliday
                   ? 'bg-rose-500/10 text-rose-500 font-black hover:bg-rose-500/20'
                   : holiday.isThursday
                   ? 'text-amber-600 hover:bg-amber-500/10'
-                  : isDarkMode
+                  : isDark
                   ? 'hover:bg-slate-800 text-slate-200'
                   : 'hover:bg-slate-100 text-slate-800'
               }`}
@@ -221,7 +224,7 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
 
       {/* Selected Day Holiday Info Banner */}
       {activeHolidayInfo.isHoliday && activeHolidayInfo.title && (
-        <div className="mt-3 pt-2 border-t border-slate-200/40 flex items-center gap-1.5 text-[11px] font-bold text-rose-500">
+        <div className="mt-3 pt-2 border-t border-slate-200/40 dark:border-slate-700/60 flex items-center gap-1.5 text-[11px] font-bold text-rose-500">
           <AlertCircle className="w-3.5 h-3.5 shrink-0 text-rose-500" />
           <span>تعطیل رسمی: {activeHolidayInfo.title}</span>
         </div>
@@ -232,25 +235,25 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
   if (inline) {
     return (
       <div className="space-y-2">
-        {label && <label className={`text-xs font-bold ${isDarkMode ? 'text-slate-300' : 'text-slate-700'}`}>{label}</label>}
+        {label && <label className={`text-xs font-bold ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{label}</label>}
         {calendarGrid}
       </div>
     );
   }
 
   return (
-    <div className="relative inline-block text-right">
+    <div className={`relative inline-block text-right ${isOpen ? 'z-[100]' : 'z-auto'}`}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-2 border rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-          isDarkMode
+          isDark
             ? 'bg-[#143242] hover:bg-[#1A3D50] border-slate-700 text-teal-200'
             : 'bg-slate-50 hover:bg-slate-100 border-slate-200 text-slate-700'
         }`}
       >
         <CalendarIcon className="w-4 h-4 text-teal-400" />
-        <span>{formatJalaliDate(selectedJalali, true)}</span>
+        <span>{formatJalaliDate(selectedJalali, false)}</span>
         {activeHolidayInfo.isHoliday && (
           <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" title={activeHolidayInfo.title || 'تعطیل رسمی'} />
         )}
@@ -259,9 +262,17 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+          <div className="fixed inset-0 z-[990]" onClick={() => setIsOpen(false)} />
           {/* Popover */}
-          <div className="absolute top-full mt-2 right-0 z-50 w-72">
+          <div className={`absolute top-full mt-2 z-[1000] w-72 sm:w-80 max-w-[calc(100vw-2rem)] ${
+            align === 'left'
+              ? 'right-0 sm:right-auto sm:left-0'
+              : align === 'right'
+              ? 'left-0 sm:left-auto sm:right-0'
+              : align === 'center'
+              ? 'left-1/2 -translate-x-1/2'
+              : 'right-0 sm:right-auto sm:left-0'
+          }`}>
             {calendarGrid}
           </div>
         </>

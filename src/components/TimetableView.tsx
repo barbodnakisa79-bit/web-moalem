@@ -125,7 +125,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
       }`}>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h2 className="text-xl font-black flex items-center gap-2.5">
+            <h2 className="text-base sm:text-lg font-bold flex items-center gap-2">
               <Calendar className={`w-6 h-6 ${isDarkMode ? 'text-teal-400' : 'text-indigo-600'}`} />
               <span>برنامه هفتگی کلاس‌ها</span>
             </h2>
@@ -279,7 +279,7 @@ export const TimetableView: React.FC<TimetableViewProps> = ({
       {editingSlot && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
           <div className={`rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border ${
-            isDarkMode ? 'bg-[#102A36] border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
+            isDarkMode ? 'bg-[#1B3E50] border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
           }`}>
             <div className="flex items-center justify-between border-b pb-3 border-slate-200 dark:border-slate-700">
               <h3 className="font-extrabold text-base flex items-center gap-2">

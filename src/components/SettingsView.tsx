@@ -1,4 +1,6 @@
 import React, { useState, useRef } from 'react';
+import * as XLSX from 'xlsx';
+import JSZip from 'jszip';
 import {
   Settings,
   School,
@@ -286,8 +288,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     showStatus('success', `نام مدرسه با موفقیت به «${trimmedNew}» تغییر یافت.`);
   };
 
-  // 1. Manual JSON Backup Download
-  const handleManualBackup = () => {
+  // 1. Manual ZIP Backup Download
+  const handleManualBackup = async () => {
     try {
       const backupData = {
         app: 'دستیار هوشمند معلم',
@@ -307,100 +309,172 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         timetable,
       };
 
-      const jsonStr = JSON.stringify(backupData, null, 2);
-      const blob = new Blob([jsonStr], { type: 'application/json;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
+      const zip = new JSZip();
+      zip.file("backup_data.json", JSON.stringify(backupData, null, 2));
+
+      const zipContent = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipContent);
       const link = document.createElement('a');
       const todayStr = new Date().toLocaleDateString('fa-IR').replace(/\//g, '-');
       link.href = url;
-      link.download = `پشتیبان_آموزگار_${todayStr}.json`;
+      link.download = `پشتیبان_آموزگار_${todayStr}.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      showStatus('success', 'فایل پشتیبان کامل برنامه با موفقیت دانلود شد.');
+      showStatus('success', 'فایل پشتیبان کامل برنامه (ZIP) با موفقیت دانلود شد.');
     } catch (err) {
-      showStatus('error', 'خطا در ساخت فایل پشتیبان.');
+      showStatus('error', 'خطا در ساخت فایل پشتیبان زیپ.');
     }
   };
 
-  // 2. JSON Restore Upload
-  const handleJSONFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 2. ZIP / JSON Restore Upload
+  const handleJSONFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const content = event.target?.result as string;
-        const parsed = JSON.parse(content);
+    try {
+      let parsed: any = null;
 
-        if (parsed && (parsed.students || parsed.classrooms)) {
-          if (parsed.schoolsDetails) {
-            setSchoolsDetailsMap(parsed.schoolsDetails);
-            localStorage.setItem('amoozgar_schools_details', JSON.stringify(parsed.schoolsDetails));
-          }
-          if (parsed.customSchools && Array.isArray(parsed.customSchools)) {
-            setCustomSchools(parsed.customSchools);
-            localStorage.setItem('amoozgar_custom_schools', JSON.stringify(parsed.customSchools));
-          }
-          if (onRestoreData) {
-            onRestoreData({
-              classrooms: parsed.classrooms || [],
-              students: parsed.students || [],
-              attendance: parsed.attendance || [],
-              scores: parsed.scores || [],
-              journals: parsed.journals || [],
-              behavioralPoints: parsed.behavioralPoints || [],
-            });
-          }
-          showStatus('success', `اطلاعات با موفقیت بازیابی شد (${parsed.students?.length || 0} دانش‌آموز).`);
-        } else {
-          showStatus('error', 'فرمت فایل پشتیبان معتبر نیست.');
+      if (file.name.endsWith('.zip')) {
+        const zip = new JSZip();
+        const zipArchive = await zip.loadAsync(file);
+        
+        // Find backup_data.json or any .json inside zip archive
+        const jsonFileName = Object.keys(zipArchive.files).find(name => name.endsWith('.json'));
+        if (!jsonFileName) {
+          throw new Error('هیچ فایل داده‌ای درون فایل زیپ یافت نشد.');
         }
-      } catch (err) {
-        showStatus('error', 'خطا در خواندن فایل پشتیبان. مطمئن شوید فایل JSON انتخاب شده است.');
+        
+        const jsonContent = await zipArchive.files[jsonFileName].async('string');
+        parsed = JSON.parse(jsonContent);
+      } else if (file.name.endsWith('.json')) {
+        // Fallback support for older raw JSON backups
+        const text = await file.text();
+        parsed = JSON.parse(text);
+      } else {
+        showStatus('error', 'فرمت فایل معتبر نیست. لطفاً فایل پشتیبان زیپ (.zip) یا (.json) انتخاب کنید.');
+        e.target.value = '';
+        return;
       }
-    };
-    reader.readAsText(file);
+
+      if (parsed && (parsed.students || parsed.classrooms)) {
+        if (parsed.schoolsDetails) {
+          setSchoolsDetailsMap(parsed.schoolsDetails);
+          localStorage.setItem('amoozgar_schools_details', JSON.stringify(parsed.schoolsDetails));
+        }
+        if (parsed.customSchools && Array.isArray(parsed.customSchools)) {
+          setCustomSchools(parsed.customSchools);
+          localStorage.setItem('amoozgar_custom_schools', JSON.stringify(parsed.customSchools));
+        }
+        if (onRestoreData) {
+          onRestoreData({
+            classrooms: parsed.classrooms || [],
+            students: parsed.students || [],
+            attendance: parsed.attendance || [],
+            scores: parsed.scores || [],
+            journals: parsed.journals || [],
+            behavioralPoints: parsed.behavioralPoints || [],
+            timetable: parsed.timetable || [],
+          });
+        }
+        showStatus('success', `اطلاعات با موفقیت از فایل پشتیبان بازیابی شد (${parsed.students?.length || 0} دانش‌آموز).`);
+      } else {
+        showStatus('error', 'فرمت ساختار فایل پشتیبان معتبر نیست.');
+      }
+    } catch (err: any) {
+      showStatus('error', err?.message || 'خطا در خواندن فایل پشتیبان.');
+    }
     e.target.value = '';
   };
 
-  // 3. Export Excel / CSV
+  // 3. Export XLSX Excel File
   const handleExportExcelAll = () => {
     try {
-      let csvContent = '\uFEFF'; // UTF-8 BOM for Persian characters in Excel
-      csvContent += 'شناسه,کلاس,کد ملی/دانش‌آموزی,نام و نام خانوادگی,نام پدر,تلفن,تعداد غیبت,امتیاز انضباطی\n';
+      const workbook = XLSX.utils.book_new();
 
-      students.forEach((std) => {
+      // Main Students Sheet
+      const studentsRows = students.map((std, idx) => {
         const cls = classrooms.find((c) => c.id === std.classId)?.name || 'نامشخص';
         const stdAttendance = attendance.filter((a) => a.studentId === std.id && a.status === 'absent').length;
         const stdPoints = behavioralPoints
           .filter((p) => p.studentId === std.id)
           .reduce((sum, p) => sum + p.scoreValue, 0);
 
-        csvContent += `"${std.id}","${cls}","${std.studentCode || ''}","${std.fullName}","${std.fatherName || ''}","${std.parentPhone || ''}","${stdAttendance}","${stdPoints}"\n`;
+        return {
+          'ردیف': idx + 1,
+          'شناسه دانش‌آموز': std.id,
+          'کلاس / درس': cls,
+          'کد ملی/دانش‌آموزی': std.studentCode || '',
+          'نام و نام خانوادگی': std.fullName,
+          'نام پدر': std.fatherName || '',
+          'شماره تماس': std.parentPhone || '',
+          'تعداد غیبت': stdAttendance,
+          'امتیاز انضباطی': stdPoints,
+        };
       });
 
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const studentsSheet = XLSX.utils.json_to_sheet(studentsRows);
+      XLSX.utils.book_append_sheet(workbook, studentsSheet, 'دانش‌آموزان');
+
+      // Scores Sheet
+      if (scores && scores.length > 0) {
+        const scoresRows = scores.map((s, idx) => {
+          const std = students.find((st) => st.id === s.studentId);
+          const cls = classrooms.find((c) => c.id === std?.classId)?.name || '';
+          return {
+            'ردیف': idx + 1,
+            'نام دانش‌آموز': std?.fullName || '',
+            'کلاس/درس': cls,
+            'تاریخ': s.date,
+            'عنوان نمره': s.title,
+            'نوع ارزیابی': s.type === 'continuous' ? 'مستمر' : s.type === 'exam' ? 'امتحان' : s.type === 'homework' ? 'تکلیف' : s.type === 'oral' ? 'شفاهی' : 'انضباطی',
+            'مقدار نمره': s.scoreValue,
+            'توضیحات': s.description || '',
+          };
+        });
+        const scoresSheet = XLSX.utils.json_to_sheet(scoresRows);
+        XLSX.utils.book_append_sheet(workbook, scoresSheet, 'نمرات');
+      }
+
+      // Attendance Sheet
+      if (attendance && attendance.length > 0) {
+        const attendanceRows = attendance.map((a, idx) => {
+          const std = students.find((st) => st.id === a.studentId);
+          const cls = classrooms.find((c) => c.id === std?.classId)?.name || '';
+          return {
+            'ردیف': idx + 1,
+            'نام دانش‌آموز': std?.fullName || '',
+            'کلاس/درس': cls,
+            'تاریخ': a.date,
+            'وضعیت': a.status === 'present' ? 'حاضر' : a.status === 'absent' ? 'غایب' : a.status === 'excused' ? 'غایب موجه' : 'تأخیر',
+            'علت / یادداشت': a.note || '',
+          };
+        });
+        const attendanceSheet = XLSX.utils.json_to_sheet(attendanceRows);
+        XLSX.utils.book_append_sheet(workbook, attendanceSheet, 'حضور و غیاب');
+      }
+
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       const todayStr = new Date().toLocaleDateString('fa-IR').replace(/\//g, '-');
       link.href = url;
-      link.download = `خروجی_اکسل_کلیه_دروس_${todayStr}.csv`;
+      link.download = `خروجی_اکسل_کلیه_دروس_${todayStr}.xlsx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
-      showStatus('success', 'خروجی فایل اکسل کلیه دروس با موفقیت تولید و دریافت شد.');
+      showStatus('success', 'خروجی اکسل واقعی (.xlsx) با موفقیت دریافت شد.');
     } catch (err) {
-      showStatus('error', 'خطا در تولید فایل اکسل.');
+      showStatus('error', 'خطا در تولید فایل اکسل XLSX.');
     }
   };
 
-  // 4. Import Excel / CSV
+  // 4. Import XLSX / XLS / CSV
   const handleExcelFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -408,21 +482,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const content = event.target?.result as string;
-        const lines = content.split(/\r?\n/).filter((l) => l.trim().length > 0);
+        const buffer = event.target?.result as ArrayBuffer;
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        // Convert sheet to json array
+        const rawData: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-        if (lines.length > 1) {
+        if (rawData && rawData.length > 1) {
           const newStudentsList: Student[] = [];
-          for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(',').map((c) => c.replace(/^"|"$/g, '').trim());
-            if (cols.length >= 4 && cols[3]) {
+
+          // Determine column headers if present
+          for (let i = 1; i < rawData.length; i++) {
+            const row = rawData[i];
+            if (!row || row.length === 0) continue;
+
+            const studentCode = String(row[3] || row[2] || row['کد ملی/دانش‌آموزی'] || row['کد دانش‌آموزی'] || '').trim();
+            const fullName = String(row[4] || row[3] || row[1] || row['نام و نام خانوادگی'] || '').trim();
+            const fatherName = String(row[5] || row[4] || row['نام پدر'] || '').trim();
+            const parentPhone = String(row[6] || row[5] || row['شماره تماس'] || row['تلفن'] || '').trim();
+
+            if (fullName && fullName !== 'نام و نام خانوادگی' && fullName !== 'نام') {
               newStudentsList.push({
-                id: cols[0] || `std-${Date.now()}-${i}`,
+                id: `std-${Date.now()}-${i}`,
                 classId: classrooms[0]?.id || 'c1',
-                studentCode: cols[2] || '',
-                fullName: cols[3],
-                fatherName: cols[4] || '',
-                parentPhone: cols[5] || '',
+                studentCode: studentCode,
+                fullName: fullName,
+                fatherName: fatherName,
+                parentPhone: parentPhone,
               });
             }
           }
@@ -440,7 +528,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         showStatus('error', 'خطا در بارگذاری فایل اکسل.');
       }
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
     e.target.value = '';
   };
 
@@ -450,14 +538,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       <input
         type="file"
         ref={jsonInputRef}
-        accept=".json"
+        accept=".zip,.json"
         className="hidden"
         onChange={handleJSONFileSelect}
       />
       <input
         type="file"
         ref={excelInputRef}
-        accept=".csv,.xlsx,.xls"
+        accept=".xlsx,.xls,.csv"
         className="hidden"
         onChange={handleExcelFileSelect}
       />
@@ -470,19 +558,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
           <div>
             <h1 className="text-xl font-bold text-slate-900">تنظیمات برنامه</h1>
-            <p className="text-xs text-slate-500 mt-0.5">
-              تنظیمات عمومی، پشتیبان‌گیری، مشخصات معلم و ارتباط مستقیم با سازنده نرم‌افزار
-            </p>
           </div>
         </div>
-
-        <button
-          onClick={onOpenDeveloperModal}
-          className="flex items-center justify-center gap-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-4 py-2.5 rounded-xl font-bold text-sm shadow-sm transition-all active:scale-98"
-        >
-          <Heart className="w-4 h-4 fill-white/20" />
-          <span>ارتباط با سازنده</span>
-        </button>
       </div>
 
       {/* Global Toast / Status Notification */}
@@ -971,33 +1048,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               )}
             </div>
 
-            {/* Card 4: About Project */}
-            <div className={`rounded-2xl p-5 border flex items-center justify-between ${
-              isDarkMode
-                ? 'bg-[#132B38] text-white border-slate-700/60'
-                : 'bg-white text-slate-800 border-slate-200 shadow-xs'
-            }`}>
-              <div className="space-y-1 text-right">
-                <div className={`flex items-center gap-2 font-extrabold text-base ${
-                  isDarkMode ? 'text-teal-300' : 'text-teal-700'
-                }`}>
-                  <Info className="w-5 h-5" />
-                  <span>درباره پروژه</span>
-                </div>
-                <p className={`text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>
-                  نسخه فعلی برنامه: <span className={`font-bold dir-ltr ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>1.0</span>
-                </p>
-              </div>
-
-              <span className={`text-xs px-3 py-1.5 rounded-xl font-bold border ${
-                isDarkMode
-                  ? 'bg-teal-500/10 text-teal-300 border-teal-500/20'
-                  : 'bg-teal-50 text-teal-700 border-teal-200'
-              }`}>
-                دستیار هوشمند معلم
-              </span>
-            </div>
-
             {/* Accordion 5: Backup and Recovery (پشتیبان‌گیری و بازیابی اطلاعات) */}
             <div className={`rounded-2xl border overflow-hidden transition-all shadow-md ${
               isDarkMode
@@ -1033,13 +1083,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       isDarkMode ? 'text-teal-300' : 'text-teal-700'
                     }`}>
                       <Database className="w-4 h-4" />
-                      <span>پشتیبان‌گیری و بازیابی دستی</span>
+                      <span>پشتیبان‌گیری و بازیابی اطلاعات (فایل فشرده ZIP)</span>
                     </div>
 
                     <p className={`text-xs leading-relaxed ${
                       isDarkMode ? 'text-slate-300' : 'text-slate-600'
                     }`}>
-                      برای جلوگیری از پاک شدن ناگهانی اطلاعات یا انتقال کلاس‌ها به دستگاه جدید، بکاپ منظم توصیه می‌شود. فایل‌های پشتیبان دستی و خودکار در پوشه «دانلود/آموزگار/پشتیبان» ذخیره می‌شوند.
+                      برای جلوگیری از پاک شدن ناگهانی اطلاعات یا انتقال کلاس‌ها به دستگاه جدید، فایل پشتیبان به‌صورت فشرده (ZIP) دانلود می‌شود. برای بازیابی کافیست فایل زیپ پشتیبان را وارد نمایید.
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
@@ -1052,7 +1102,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         }`}
                       >
                         <Download className="w-4 h-4 stroke-[2.5]" />
-                        <span>پشتیبان‌گیری دستی</span>
+                        <span>پشتیبان‌گیری (فایل ZIP)</span>
                       </button>
 
                       <button
@@ -1064,7 +1114,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         }`}
                       >
                         <Upload className="w-4 h-4 stroke-[2.5]" />
-                        <span>بازیابی اطلاعات</span>
+                        <span>بازیابی اطلاعات (ZIP)</span>
                       </button>
                     </div>
                   </div>
@@ -1128,18 +1178,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       isDarkMode ? 'text-teal-300' : 'text-teal-700'
                     }`}>
                       <FileSpreadsheet className="w-4 h-4" />
-                      <span>پشتیبان‌گیری و انتقال اطلاعات به اکسل</span>
+                      <span>پشتیبان‌گیری و انتقال اطلاعات به اکسل (فرمت XLSX)</span>
                     </div>
                     <p className={`text-xs font-semibold ${
                       isDarkMode ? 'text-teal-400/80' : 'text-teal-600'
                     }`}>
-                      خروجی و ورودی اکسل (جهت کلیه دروس)
+                      خروجی و ورودی اکسل واقعی (.xlsx) جهت کلیه دروس
                     </p>
 
                     <p className={`text-xs leading-relaxed ${
                       isDarkMode ? 'text-slate-300' : 'text-slate-600'
                     }`}>
-                      دریافت فایل اکسل شامل کلیه دروس، اسامی دانش‌آموزان، نمرات عددی و توصیفی و غیبت‌ها به صورت یکجا، یا بازیابی و ورود کامل اطلاعات تمام دروس از فایل اکسل.
+                      دریافت فایل اکسل واقعی با فرمت XLSX شامل شیت‌های مجزا برای دانش‌آموزان، نمرات و حضور و غیاب کلیه دروس به صورت یکجا، یا ورود اطلاعات از فایل اکسل.
                     </p>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
@@ -1152,7 +1202,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         }`}
                       >
                         <Download className="w-4 h-4 stroke-[2.5]" />
-                        <span>خروجی همه دروس</span>
+                        <span>خروجی اکسل (XLSX)</span>
                       </button>
 
                       <button
@@ -1164,7 +1214,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         }`}
                       >
                         <Upload className="w-4 h-4 stroke-[2.5]" />
-                        <span>ورودی همه دروس</span>
+                        <span>ورودی اکسل (XLSX/XLS)</span>
                       </button>
                     </div>
                   </div>
@@ -1194,6 +1244,33 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             >
               مشاهده اطلاعات تماس سازنده
             </button>
+          </div>
+
+          {/* Card: About Project */}
+          <div className={`rounded-2xl p-5 border flex items-center justify-between ${
+            isDarkMode
+              ? 'bg-[#132B38] text-white border-slate-700/60'
+              : 'bg-white text-slate-800 border-slate-200 shadow-xs'
+          }`}>
+            <div className="space-y-1 text-right">
+              <div className={`flex items-center gap-2 font-extrabold text-base ${
+                isDarkMode ? 'text-teal-300' : 'text-teal-700'
+              }`}>
+                <Info className="w-5 h-5" />
+                <span>درباره پروژه</span>
+              </div>
+              <p className={`text-xs ${isDarkMode ? 'text-slate-300' : 'text-slate-500'}`}>
+                نسخه فعلی برنامه: <span className={`font-bold dir-ltr ${isDarkMode ? 'text-white' : 'text-slate-800'}`}>1.0</span>
+              </p>
+            </div>
+
+            <span className={`text-xs px-3 py-1.5 rounded-xl font-bold border ${
+              isDarkMode
+                ? 'bg-teal-500/10 text-teal-300 border-teal-500/20'
+                : 'bg-teal-50 text-teal-700 border-teal-200'
+            }`}>
+              دستیار مدیریت کلاس
+            </span>
           </div>
         </div>
 
@@ -1305,7 +1382,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {schoolToDelete && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
           <div className={`rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 border ${
-            isDarkMode ? 'bg-[#102A36] text-white border-slate-700' : 'bg-white text-slate-800 border-slate-200'
+            isDarkMode ? 'bg-[#1B3E50] text-white border-slate-700' : 'bg-white text-slate-800 border-slate-200'
           }`}>
             <div className="flex items-center gap-3 text-rose-500">
               <div className="w-10 h-10 rounded-2xl bg-rose-500/10 flex items-center justify-center shrink-0">
@@ -1361,7 +1438,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {schoolToEdit && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in">
           <div className={`rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 border ${
-            isDarkMode ? 'bg-[#102A36] text-white border-slate-700' : 'bg-white text-slate-800 border-slate-200'
+            isDarkMode ? 'bg-[#1B3E50] text-white border-slate-700' : 'bg-white text-slate-800 border-slate-200'
           }`}>
             <div className="flex items-center gap-3 text-indigo-500 dark:text-teal-400">
               <div className="w-10 h-10 rounded-2xl bg-indigo-500/10 dark:bg-teal-500/10 flex items-center justify-center shrink-0">
@@ -1419,7 +1496,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       {schoolModalData && (
         <div className="fixed inset-0 z-50 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in overflow-y-auto">
           <div className={`rounded-3xl p-6 max-w-lg w-full shadow-2xl space-y-4 border my-8 ${
-            isDarkMode ? 'bg-[#102A36] text-white border-slate-700' : 'bg-white text-slate-800 border-slate-200'
+            isDarkMode ? 'bg-[#1B3E50] text-white border-slate-700' : 'bg-white text-slate-800 border-slate-200'
           }`}>
             <div className="flex items-center gap-3 text-teal-500">
               <div className="w-10 h-10 rounded-2xl bg-teal-500/10 flex items-center justify-center shrink-0">

@@ -151,15 +151,15 @@ export function isoStringToJalali(isoStr: string): JalaliDate {
   return gregorianToJalali(gy, gm, gd);
 }
 
-// Format Jalali Date as string e.g. "۱۴۰۳/۰۵/۱۳" or "شنبه ۱۳ مرداد ۱۴۰۳"
-export function formatJalaliDate(j: JalaliDate, includeWeekday = true): string {
-  const dayName = PERSIAN_WEEK_DAYS[getJalaliDayOfWeek(j.jy, j.jm, j.jd)];
+// Format Jalali Date as string e.g. "۱۳ مرداد ۱۴۰۳"
+export function formatJalaliDate(j: JalaliDate, includeWeekday = false): string {
   const monthName = JALALI_MONTH_NAMES[j.jm - 1];
   
   if (includeWeekday) {
-    return `${dayName} ${j.jd} ${monthName} ${j.jy}`;
+    const dayName = PERSIAN_WEEK_DAYS[getJalaliDayOfWeek(j.jy, j.jm, j.jd)];
+    return `${dayName} ${toPersianDigits(j.jd)} ${monthName} ${toPersianDigits(j.jy)}`;
   }
-  return `${j.jy}/${j.jm < 10 ? '0' + j.jm : j.jm}/${j.jd < 10 ? '0' + j.jd : j.jd}`;
+  return `${toPersianDigits(j.jd)} ${monthName} ${toPersianDigits(j.jy)}`;
 }
 
 // Persian Digits Converter

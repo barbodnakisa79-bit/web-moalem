@@ -19,7 +19,7 @@ export const DeveloperContactCard: React.FC<DeveloperContactCardProps> = ({
       name: 'تلگرام',
       icon: Send,
       color: 'bg-sky-500 hover:bg-sky-600 text-white',
-      url: 'https://t.me/zia_ghasem',
+      url: `https://t.me/+98${phoneNum.substring(1)}`,
     },
     {
       name: 'واتساپ',
@@ -68,21 +68,40 @@ export const DeveloperContactCard: React.FC<DeveloperContactCardProps> = ({
       </div>
 
       {/* Direct Contact Info */}
-      <div className="space-y-3 pt-1">
+      <div className="space-y-2.5 pt-1 text-right">
         <a
           href={`tel:${phoneNum}`}
-          className="flex items-center justify-center gap-2 text-slate-800 hover:text-purple-700 font-bold text-sm bg-slate-50 hover:bg-purple-50 p-2.5 rounded-xl border border-slate-200/80 hover:border-purple-200 transition-colors group"
+          className="flex items-center justify-between text-slate-800 hover:text-purple-700 font-bold text-xs sm:text-sm bg-slate-50 hover:bg-purple-50 p-3 rounded-2xl border border-slate-200/80 hover:border-purple-200 transition-colors group"
         >
-          <Phone className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
-          <span>تلفن تماس: {phoneNum}</span>
+          <div className="flex items-center gap-2">
+            <Phone className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
+            <span>شماره همراه / تماس:</span>
+          </div>
+          <span className="font-extrabold text-purple-900">{phoneNum}</span>
+        </a>
+
+        <a
+          href={`https://t.me/+98${phoneNum.substring(1)}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between text-slate-800 hover:text-sky-700 font-bold text-xs sm:text-sm bg-sky-50/70 hover:bg-sky-100/80 p-3 rounded-2xl border border-sky-200 hover:border-sky-300 transition-colors group"
+        >
+          <div className="flex items-center gap-2">
+            <Send className="w-4 h-4 text-sky-600 group-hover:scale-110 transition-transform" />
+            <span>آدرس تلگرام:</span>
+          </div>
+          <span className="font-extrabold text-sky-800 dir-ltr">{phoneNum}</span>
         </a>
 
         <a
           href={`mailto:${emailAddr}`}
-          className="flex items-center justify-center gap-2 text-slate-800 hover:text-purple-700 font-bold text-sm bg-slate-50 hover:bg-purple-50 p-2.5 rounded-xl border border-slate-200/80 hover:border-purple-200 transition-colors group"
+          className="flex items-center justify-between text-slate-800 hover:text-purple-700 font-bold text-xs sm:text-sm bg-slate-50 hover:bg-purple-50 p-3 rounded-2xl border border-slate-200/80 hover:border-purple-200 transition-colors group"
         >
-          <Mail className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
-          <span>ایمیل: {emailAddr}</span>
+          <div className="flex items-center gap-2">
+            <Mail className="w-4 h-4 text-purple-600 group-hover:scale-110 transition-transform" />
+            <span>ایمیل:</span>
+          </div>
+          <span className="font-semibold text-slate-700 text-xs dir-ltr">{emailAddr}</span>
         </a>
       </div>
 
