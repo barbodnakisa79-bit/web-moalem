@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Classroom, Student, EvaluationSystem, GRADE_OPTIONS } from '../types';
+import { Classroom, Student, EvaluationSystem, GRADE_OPTIONS, EDUCATION_STAGES, STAGE_GRADES_MAP, SchoolDetails } from '../types';
 import { isStudentInClassroom } from '../utils/studentUtils';
+import { ColorPickerSelector } from './ColorPickerSelector';
+import { getCardColorClasses, getCardColorStyle } from '../utils/cardColors';
 import {
   Plus,
   Ruler,
@@ -25,6 +27,11 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Palette,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Move,
 } from 'lucide-react';
 
 interface SubjectCardsViewProps {
@@ -79,6 +86,109 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
 
+  // Reordering state
+  const [schoolsOrder, setSchoolsOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('amoozgar_schools_order');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [gradesOrder, setGradesOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('amoozgar_grades_order');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [classroomsOrder, setClassroomsOrder] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('amoozgar_classrooms_order');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  const [reorderModalType, setReorderModalType] = useState<'school' | 'grade' | 'subject' | null>(null);
+
+  // Long press timer (3 seconds = 3000ms) logic
+  const [holdingProgress, setHoldingProgress] = useState<{ type: 'school' | 'grade' | 'subject'; id: string; percent: number } | null>(null);
+  const timerRef = React.useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const preventClickRef = React.useRef<boolean>(false);
+  const touchStartPos = React.useRef<{ x: number; y: number } | null>(null);
+
+  const startPressTimer = (type: 'school' | 'grade' | 'subject', id: string) => {
+    cancelPressTimer();
+    preventClickRef.current = false;
+    let elapsed = 0;
+    const total = 3000;
+    const step = 50;
+
+    setHoldingProgress({ type, id, percent: 0 });
+
+    intervalRef.current = setInterval(() => {
+      elapsed += step;
+      const pct = Math.min(100, Math.round((elapsed / total) * 100));
+      setHoldingProgress({ type, id, percent: pct });
+    }, step);
+
+    timerRef.current = setTimeout(() => {
+      cancelPressTimer();
+      preventClickRef.current = true;
+      try {
+        if (navigator.vibrate) navigator.vibrate(100);
+      } catch {}
+      setReorderModalType(type);
+    }, total);
+  };
+
+  const cancelPressTimer = () => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    setHoldingProgress(null);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent, type: 'school' | 'grade' | 'subject', id: string) => {
+    const touch = e.touches[0];
+    touchStartPos.current = { x: touch.clientX, y: touch.clientY };
+    startPressTimer(type, id);
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!touchStartPos.current || !timerRef.current) return;
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.clientX - touchStartPos.current.x);
+    const dy = Math.abs(touch.clientY - touchStartPos.current.y);
+    if (dx > 10 || dy > 10) {
+      cancelPressTimer();
+    }
+  };
+
+  const handleMouseDown = (e: React.MouseEvent, type: 'school' | 'grade' | 'subject', id: string) => {
+    if (e.button !== 0) return;
+    startPressTimer(type, id);
+  };
+
+  const handleMouseUp = () => {
+    cancelPressTimer();
+  };
+
+  const handleMouseLeave = () => {
+    cancelPressTimer();
+  };
+
   // Modals for edit & delete
   const [editingClassroom, setEditingClassroom] = useState<Classroom | null>(null);
   const [deletingClassroom, setDeletingClassroom] = useState<Classroom | null>(null);
@@ -86,13 +196,16 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
   // Edit form state
   const [editSubject, setEditSubject] = useState<string>('');
   const [editName, setEditName] = useState<string>('');
+  const [editEducationStage, setEditEducationStage] = useState<string>('متوسطه دوم - نظری تجربی');
   const [editGrade, setEditGrade] = useState<string>('');
   const [editSchoolName, setEditSchoolName] = useState<string>('');
   const [editAcademicYear, setEditAcademicYear] = useState<string>('');
   const [editEvaluationSystem, setEditEvaluationSystem] = useState<EvaluationSystem>('numeric');
+  const [editCardBgColor, setEditCardBgColor] = useState<string>('default');
 
   // Eye toggle state for display on card
   const [editShowName, setEditShowName] = useState<boolean>(true);
+  const [editShowEducationStage, setEditShowEducationStage] = useState<boolean>(true);
   const [editShowGrade, setEditShowGrade] = useState<boolean>(true);
   const [editShowSchoolName, setEditShowSchoolName] = useState<boolean>(true);
   const [editShowAcademicYear, setEditShowAcademicYear] = useState<boolean>(false);
@@ -104,11 +217,14 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
     setEditingClassroom(cls);
     setEditSubject(cls.subject);
     setEditName(cls.name);
+    setEditEducationStage(cls.educationStage || 'متوسطه دوم - نظری تجربی');
     setEditGrade(cls.grade);
     setEditSchoolName(cls.schoolName || '');
     setEditAcademicYear(cls.academicYear);
     setEditEvaluationSystem(cls.evaluationSystem);
+    setEditCardBgColor(cls.cardBgColor || 'default');
     setEditShowName(cls.showName ?? true);
+    setEditShowEducationStage(cls.showEducationStage ?? true);
     setEditShowGrade(cls.showGrade ?? true);
     setEditShowSchoolName(cls.showSchoolName ?? true);
     setEditShowAcademicYear(cls.showAcademicYear ?? false);
@@ -125,11 +241,14 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
       ...editingClassroom,
       subject: editSubject.trim(),
       name: editName.trim(),
+      educationStage: editEducationStage,
       grade: editGrade.trim(),
       schoolName: editSchoolName.trim(),
       academicYear: editAcademicYear.trim(),
       evaluationSystem: editEvaluationSystem,
+      cardBgColor: editCardBgColor,
       showName: editShowName,
+      showEducationStage: editShowEducationStage,
       showGrade: editShowGrade,
       showSchoolName: editShowSchoolName,
       showAcademicYear: editShowAcademicYear,
@@ -257,6 +376,88 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
     return matchesSchool && matchesGrade && matchesSearch;
   });
 
+  const sortedAvailableSchools = React.useMemo(() => {
+    if (!schoolsOrder || schoolsOrder.length === 0) return availableSchools;
+    return [...availableSchools].sort((a, b) => {
+      const idxA = schoolsOrder.indexOf(a);
+      const idxB = schoolsOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return 0;
+    });
+  }, [availableSchools, schoolsOrder]);
+
+  const sortedAvailableGrades = React.useMemo(() => {
+    if (!gradesOrder || gradesOrder.length === 0) return availableGrades;
+    return [...availableGrades].sort((a, b) => {
+      const idxA = gradesOrder.indexOf(a);
+      const idxB = gradesOrder.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return 0;
+    });
+  }, [availableGrades, gradesOrder]);
+
+  const sortedFilteredClassrooms = React.useMemo(() => {
+    if (!classroomsOrder || classroomsOrder.length === 0) return filteredClassrooms;
+    return [...filteredClassrooms].sort((a, b) => {
+      const idxA = classroomsOrder.indexOf(a.id);
+      const idxB = classroomsOrder.indexOf(b.id);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return 0;
+    });
+  }, [filteredClassrooms, classroomsOrder]);
+
+  const moveSchool = (index: number, direction: 'up' | 'down') => {
+    const arr = [...sortedAvailableSchools];
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= arr.length) return;
+    const temp = arr[index];
+    arr[index] = arr[target];
+    arr[target] = temp;
+    setSchoolsOrder(arr);
+    try {
+      localStorage.setItem('amoozgar_schools_order', JSON.stringify(arr));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const moveGrade = (index: number, direction: 'up' | 'down') => {
+    const arr = [...sortedAvailableGrades];
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= arr.length) return;
+    const temp = arr[index];
+    arr[index] = arr[target];
+    arr[target] = temp;
+    setGradesOrder(arr);
+    try {
+      localStorage.setItem('amoozgar_grades_order', JSON.stringify(arr));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const moveClassroom = (index: number, direction: 'up' | 'down') => {
+    const arr = [...sortedFilteredClassrooms];
+    const target = direction === 'up' ? index - 1 : index + 1;
+    if (target < 0 || target >= arr.length) return;
+    const temp = arr[index];
+    arr[index] = arr[target];
+    arr[target] = temp;
+    const ids = arr.map((c) => c.id);
+    setClassroomsOrder(ids);
+    try {
+      localStorage.setItem('amoozgar_classrooms_order', JSON.stringify(ids));
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   // Helper to get subject icon and pastel container color
   const getSubjectIcon = (subjectName: string) => {
     const s = subjectName.toLowerCase();
@@ -340,20 +541,32 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
           </div>
 
           {/* School Filter Chips directly next to 'داشبورد' */}
-          {availableSchools.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
-              {availableSchools.map((school) => {
+          {sortedAvailableSchools.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+              {sortedAvailableSchools.map((school) => {
                 const count = classrooms.filter((c) =>
                   school === 'سایر' ? !c.schoolName || !c.schoolName.trim() : c.schoolName === school
                 ).length;
 
                 const isSelected = selectedSchoolFilter === school;
+                const isHoldingThis = holdingProgress?.type === 'school' && holdingProgress?.id === school;
 
                 return (
                   <button
                     key={school}
                     type="button"
+                    onMouseDown={(e) => handleMouseDown(e, 'school', school)}
+                    onMouseUp={handleMouseUp}
+                    onMouseLeave={handleMouseLeave}
+                    onTouchStart={(e) => handleTouchStart(e, 'school', school)}
+                    onTouchEnd={handleMouseUp}
+                    onTouchMove={handleTouchMove}
+                    onTouchCancel={handleMouseUp}
                     onClick={() => {
+                      if (preventClickRef.current) {
+                        preventClickRef.current = false;
+                        return;
+                      }
                       setSelectedSchoolFilter(school);
                       const schoolClasses = classrooms.filter((c) =>
                         school === 'سایر'
@@ -370,7 +583,7 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                         }
                       }
                     }}
-                    className={`px-3 py-1 rounded-2xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                    className={`relative overflow-hidden px-3 py-1 rounded-2xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                       isSelected
                         ? isDarkMode
                           ? 'bg-teal-500/20 text-teal-300 border-2 border-teal-400 shadow-xs'
@@ -380,7 +593,13 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                         : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
                     }`}
                   >
-                    {school} ({count})
+                    {isHoldingThis && (
+                      <span
+                        className="absolute bottom-0 right-0 top-0 bg-amber-500/40 transition-all duration-75"
+                        style={{ width: `${holdingProgress.percent}%` }}
+                      />
+                    )}
+                    <span className="relative z-10">{school} ({count})</span>
                   </button>
                 );
               })}
@@ -402,17 +621,29 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
       </div>
 
       {/* Grade Filter Row (if any) - placed compactly right below header */}
-      {availableGrades.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none pr-1">
-          {availableGrades.map((grade) => {
+      {sortedAvailableGrades.length > 0 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none pr-1 py-0.5">
+          {sortedAvailableGrades.map((grade) => {
             const count = classroomsForSchool.filter((c) => c.grade === grade).length;
             const isSelected = selectedGradeFilter === grade;
+            const isHoldingThis = holdingProgress?.type === 'grade' && holdingProgress?.id === grade;
 
             return (
               <button
                 key={grade}
                 type="button"
+                onMouseDown={(e) => handleMouseDown(e, 'grade', grade)}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseLeave}
+                onTouchStart={(e) => handleTouchStart(e, 'grade', grade)}
+                onTouchEnd={handleMouseUp}
+                onTouchMove={handleTouchMove}
+                onTouchCancel={handleMouseUp}
                 onClick={() => {
+                  if (preventClickRef.current) {
+                    preventClickRef.current = false;
+                    return;
+                  }
                   const newGrade = selectedGradeFilter === grade ? 'همه' : grade;
                   setSelectedGradeFilter(newGrade);
                   if (newGrade && newGrade !== 'همه') {
@@ -424,7 +655,7 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                     }
                   }
                 }}
-                className={`px-3 py-1 rounded-2xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer ${
+                className={`relative overflow-hidden px-3 py-1 rounded-2xl text-xs font-bold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                   isSelected
                     ? isDarkMode
                       ? 'bg-teal-500/20 text-teal-300 border-2 border-teal-400 shadow-xs'
@@ -434,7 +665,13 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                     : 'bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200'
                 }`}
               >
-                {grade} ({count})
+                {isHoldingThis && (
+                  <span
+                    className="absolute bottom-0 right-0 top-0 bg-amber-500/40 transition-all duration-75"
+                    style={{ width: `${holdingProgress.percent}%` }}
+                  />
+                )}
+                <span className="relative z-10">{grade} ({count})</span>
               </button>
             );
           })}
@@ -442,7 +679,7 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
       )}
 
       {/* Grid of Subject Cards */}
-      {filteredClassrooms.length > 0 ? (() => {
+      {sortedFilteredClassrooms.length > 0 ? (() => {
         const getCardDetailsCount = (cls: Classroom) => {
           let count = 0;
           if ((cls.showSchoolName ?? true) && cls.schoolName) count++;
@@ -452,7 +689,7 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
           return count;
         };
 
-        const maxDetails = Math.max(...filteredClassrooms.map(getCardDetailsCount), 0);
+        const maxDetails = Math.max(...sortedFilteredClassrooms.map(getCardDetailsCount), 0);
 
         const gridClasses = maxDetails === 0
           ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5"
@@ -462,7 +699,7 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
 
         return (
           <div className={gridClasses}>
-            {filteredClassrooms.map((cls) => {
+            {sortedFilteredClassrooms.map((cls) => {
               const classStudentCount = students.filter((s) => isStudentInClassroom(s, cls)).length;
               const detailsCount = getCardDetailsCount(cls);
 
@@ -486,16 +723,44 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                 chevronClass = 'w-4 h-4';
               }
 
+              const customClasses = getCardColorClasses(cls.cardBgColor, isDarkMode);
+              const customStyle = getCardColorStyle(cls.cardBgColor, isDarkMode);
+              const isHoldingCard = holdingProgress?.type === 'subject' && holdingProgress?.id === cls.id;
+
               return (
                 <div
                   key={cls.id}
-                  onClick={() => onSelectClassroom(cls)}
-                  className={`group relative border transition-all cursor-pointer shadow-2xs hover:shadow-lg hover:-translate-y-0.5 flex items-center justify-between ${cardPaddingClass} ${
-                    isDarkMode
-                      ? 'bg-[#143242] border-slate-700/80 hover:bg-[#184255] hover:border-teal-400 hover:shadow-teal-500/15 text-white'
-                      : 'bg-white border-slate-200 hover:border-indigo-300 text-slate-800'
+                  onMouseDown={(e) => handleMouseDown(e, 'subject', cls.id)}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseLeave}
+                  onTouchStart={(e) => handleTouchStart(e, 'subject', cls.id)}
+                  onTouchEnd={handleMouseUp}
+                  onTouchMove={handleTouchMove}
+                  onTouchCancel={handleMouseUp}
+                  onClick={() => {
+                    if (preventClickRef.current) {
+                      preventClickRef.current = false;
+                      return;
+                    }
+                    onSelectClassroom(cls);
+                  }}
+                  style={customStyle}
+                  className={`group relative overflow-hidden border transition-all cursor-pointer shadow-2xs hover:shadow-lg hover:-translate-y-0.5 flex items-center justify-between ${cardPaddingClass} ${
+                    customClasses || (
+                      isDarkMode
+                        ? 'bg-[#143242] border-slate-700/80 hover:bg-[#184255] hover:border-teal-400 hover:shadow-teal-500/15 text-white'
+                        : 'bg-white border-slate-200 hover:border-indigo-300 text-slate-800'
+                    )
                   }`}
                 >
+                  {isHoldingCard && (
+                    <div className="absolute inset-0 bg-amber-500/20 dark:bg-amber-400/20 z-20 pointer-events-none flex items-end">
+                      <div
+                        className="bg-amber-500 dark:bg-amber-400 h-1.5 transition-all duration-75"
+                        style={{ width: `${holdingProgress.percent}%` }}
+                      />
+                    </div>
+                  )}
                   {/* Subject Title & Details */}
                   <div className="flex-1 space-y-0.5 text-right min-w-0">
                     <div className="flex items-center justify-between gap-1">
@@ -511,9 +776,10 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                       </div>
                     )}
 
-                    {((cls.showGrade ?? true) || (cls.showName ?? true) || cls.showAcademicYear) && (
+                    {((cls.showEducationStage ?? true) || (cls.showGrade ?? true) || (cls.showName ?? true) || cls.showAcademicYear) && (
                       <p className="text-xs font-bold text-slate-500 dark:text-slate-400 truncate">
                         {[
+                          (cls.showEducationStage ?? true) ? cls.educationStage : null,
                           (cls.showGrade ?? true) ? cls.grade : null,
                           (cls.showName ?? true) ? cls.name : null,
                           cls.showAcademicYear ? cls.academicYear : null,
@@ -543,10 +809,12 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
 
                   {/* Action Buttons & Arrow */}
                   {detailsCount === 0 ? (
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-1 shrink-0 z-30">
                       <button
                         type="button"
                         title="ویرایش درس"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
                           handleStartEdit(cls);
@@ -558,6 +826,8 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                       <button
                         type="button"
                         title="حذف درس"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onTouchStart={(e) => e.stopPropagation()}
                         onClick={(e) => {
                           e.stopPropagation();
                           setDeletingClassroom(cls);
@@ -571,11 +841,13 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-col items-end justify-between self-stretch shrink-0 gap-2">
+                    <div className="flex flex-col items-end justify-between self-stretch shrink-0 gap-2 z-30">
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
                           title="ویرایش درس"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleStartEdit(cls);
@@ -587,6 +859,8 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                         <button
                           type="button"
                           title="حذف درس"
+                          onMouseDown={(e) => e.stopPropagation()}
+                          onTouchStart={(e) => e.stopPropagation()}
                           onClick={(e) => {
                             e.stopPropagation();
                             setDeletingClassroom(cls);
@@ -687,6 +961,45 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                 />
               </div>
 
+              {/* Education Stage / Track - Eye toggle */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold">مقطع و شاخه تحصیلی *</label>
+                  <button
+                    type="button"
+                    onClick={() => setEditShowEducationStage(!editShowEducationStage)}
+                    title={editShowEducationStage ? 'نمایش مقطع تحصیلی روی کارت' : 'عدم نمایش مقطع روی کارت'}
+                    className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                      editShowEducationStage
+                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-teal-950/60 dark:border-teal-800 dark:text-teal-300 font-bold'
+                        : 'bg-slate-50 border-slate-200 text-slate-400 dark:bg-slate-800 dark:border-slate-700 dark:text-slate-500'
+                    }`}
+                  >
+                    {editShowEducationStage ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                    <span className="text-[10px]">{editShowEducationStage ? 'نمایش در کارت' : 'عدم نمایش'}</span>
+                  </button>
+                </div>
+                <select
+                  required
+                  value={editEducationStage}
+                  onChange={(e) => {
+                    const newStage = e.target.value;
+                    setEditEducationStage(newStage);
+                    const available = STAGE_GRADES_MAP[newStage] || GRADE_OPTIONS;
+                    if (available && available.length > 0) {
+                      setEditGrade(available[0]);
+                    }
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-white font-bold focus:ring-2 focus:ring-indigo-500 dark:focus:ring-teal-400 cursor-pointer"
+                >
+                  {EDUCATION_STAGES.map((stg) => (
+                    <option key={stg} value={stg}>
+                      {stg}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* Class Name - Eye toggle */}
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
@@ -738,14 +1051,21 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                     onChange={(e) => setEditGrade(e.target.value)}
                     className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-white font-bold focus:ring-2 focus:ring-indigo-500 dark:focus:ring-teal-400 cursor-pointer"
                   >
-                    {!GRADE_OPTIONS.includes(editGrade) && editGrade && (
-                      <option value={editGrade}>{editGrade}</option>
-                    )}
-                    {GRADE_OPTIONS.map((g) => (
-                      <option key={g} value={g}>
-                        {g}
-                      </option>
-                    ))}
+                    {(() => {
+                      const options = STAGE_GRADES_MAP[editEducationStage] || GRADE_OPTIONS;
+                      return (
+                        <>
+                          {!options.includes(editGrade) && editGrade && (
+                            <option value={editGrade}>{editGrade}</option>
+                          )}
+                          {options.map((g) => (
+                            <option key={g} value={g}>
+                              {g}
+                            </option>
+                          ))}
+                        </>
+                      );
+                    })()}
                   </select>
                 </div>
 
@@ -803,6 +1123,14 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                   <option value="descriptive">توصیفی (خیلی خوب، خوب، قابل قبول...)</option>
                 </select>
               </div>
+
+              {/* Color Selector for Classroom Card */}
+              <ColorPickerSelector
+                selectedColor={editCardBgColor}
+                onChangeColor={(col) => setEditCardBgColor(col)}
+                label="رنگ پس‌زمینه کارت درس:"
+                isDarkMode={isDarkMode}
+              />
 
               {/* Student Count - Eye toggle */}
               <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
@@ -876,6 +1204,185 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                 className="px-5 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-xs cursor-pointer"
               >
                 حذف نهایی درس
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reorder Modal for Schools, Grades, or Subject Cards */}
+      {reorderModalType && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1B3E50] dark:text-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-200 dark:border-slate-700 animate-scale-in">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2 text-indigo-600 dark:text-teal-400 font-black text-base">
+                <ArrowUpDown className="w-5 h-5" />
+                <span>
+                  {reorderModalType === 'school' && 'تغییر ترتیب قرارگیری مدارس'}
+                  {reorderModalType === 'grade' && 'تغییر ترتیب قرارگیری پایه‌ها'}
+                  {reorderModalType === 'subject' && 'تغییر ترتیب قرارگیری کارت‌های دروس'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReorderModalType(null)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 dark:text-slate-300 leading-relaxed font-semibold">
+              با استفاده از دکمه‌های بالا و پایین، می‌توانید موقعیت و ترتیب نمایش موارد را تغییر دهید:
+            </p>
+
+            <div className="max-h-72 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
+              {reorderModalType === 'school' &&
+                sortedAvailableSchools.map((school, idx) => (
+                  <div
+                    key={school}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-teal-950/80 text-indigo-600 dark:text-teal-400 text-xs font-black flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                        {school}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => moveSchool(idx, 'up')}
+                        className="p-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
+                        title="انتقال به بالاتر"
+                      >
+                        <ArrowUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === sortedAvailableSchools.length - 1}
+                        onClick={() => moveSchool(idx, 'down')}
+                        className="p-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
+                        title="انتقال به پایین‌تر"
+                      >
+                        <ArrowDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+              {reorderModalType === 'grade' &&
+                sortedAvailableGrades.map((grade, idx) => (
+                  <div
+                    key={grade}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-teal-950/80 text-indigo-600 dark:text-teal-400 text-xs font-black flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <span className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                        {grade}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => moveGrade(idx, 'up')}
+                        className="p-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
+                        title="انتقال به بالاتر"
+                      >
+                        <ArrowUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === sortedAvailableGrades.length - 1}
+                        onClick={() => moveGrade(idx, 'down')}
+                        className="p-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
+                        title="انتقال به پایین‌تر"
+                      >
+                        <ArrowDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+              {reorderModalType === 'subject' &&
+                sortedFilteredClassrooms.map((cls, idx) => (
+                  <div
+                    key={cls.id}
+                    className="flex items-center justify-between p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-200/80 dark:border-slate-700/80"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-teal-950/80 text-indigo-600 dark:text-teal-400 text-xs font-black flex items-center justify-center shrink-0">
+                        {idx + 1}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                          {cls.subject} {cls.name ? `(${cls.name})` : ''}
+                        </p>
+                        <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                          {cls.grade} {cls.schoolName ? `• ${cls.schoolName}` : ''}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        disabled={idx === 0}
+                        onClick={() => moveClassroom(idx, 'up')}
+                        className="p-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
+                        title="انتقال به بالاتر"
+                      >
+                        <ArrowUp className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={idx === sortedFilteredClassrooms.length - 1}
+                        onClick={() => moveClassroom(idx, 'down')}
+                        className="p-1.5 rounded-xl bg-white dark:bg-slate-700 border border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-200 disabled:opacity-30 disabled:cursor-not-allowed hover:bg-indigo-50 dark:hover:bg-slate-600 hover:text-indigo-600 transition-colors cursor-pointer"
+                        title="انتقال به پایین‌تر"
+                      >
+                        <ArrowDown className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100 dark:border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  if (reorderModalType === 'school') {
+                    setSchoolsOrder([]);
+                    localStorage.removeItem('amoozgar_schools_order');
+                  } else if (reorderModalType === 'grade') {
+                    setGradesOrder([]);
+                    localStorage.removeItem('amoozgar_grades_order');
+                  } else if (reorderModalType === 'subject') {
+                    setClassroomsOrder([]);
+                    localStorage.removeItem('amoozgar_classrooms_order');
+                  }
+                }}
+                className="text-xs font-bold text-rose-600 dark:text-rose-400 hover:underline cursor-pointer"
+              >
+                بازنشانی به ترتیب پیش‌فرض
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setReorderModalType(null)}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-teal-500 dark:hover:bg-teal-600 text-white font-bold text-xs shadow-md transition-all active:scale-95 cursor-pointer"
+              >
+                تایید و ذخیره ترتیب
               </button>
             </div>
           </div>

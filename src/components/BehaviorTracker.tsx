@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Classroom, Student, BehavioralPoint } from '../types';
-import { isStudentInClassroom } from '../utils/studentUtils';
+import { isStudentInClassroom, sortStudentsByLastName } from '../utils/studentUtils';
 import { ThumbsUp, ThumbsDown, Plus, Award, CheckCircle2 } from 'lucide-react';
 
 interface BehaviorTrackerProps {
@@ -16,7 +16,9 @@ export const BehaviorTracker: React.FC<BehaviorTrackerProps> = ({
   points,
   onAddPoint,
 }) => {
-  const classStudents = students.filter((s) => isStudentInClassroom(s, classroom));
+  const classStudents = useMemo(() => {
+    return sortStudentsByLastName(students.filter((s) => isStudentInClassroom(s, classroom)));
+  }, [students, classroom]);
   const classPoints = points.filter((p) => p.classId === classroom.id);
 
   const [selectedStudentId, setSelectedStudentId] = useState(classStudents[0]?.id || '');

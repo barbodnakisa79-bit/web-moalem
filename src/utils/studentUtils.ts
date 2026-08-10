@@ -38,3 +38,27 @@ export const isStudentInClassroom = (student: Student, classroom?: Classroom | n
   return false;
 };
 
+/**
+ * Extracts the last name (نام خانوادگی) from a student's full name.
+ */
+export const getLastName = (fullName: string | undefined): string => {
+  if (!fullName) return '';
+  const parts = fullName.trim().split(/\s+/);
+  if (parts.length <= 1) return parts[0] || '';
+  return parts.slice(1).join(' ');
+};
+
+/**
+ * Sorts an array of students by Persian alphabetical order of their last name.
+ * If last names match, falls back to full name comparison.
+ */
+export const sortStudentsByLastName = (students: Student[]): Student[] => {
+  return [...students].sort((a, b) => {
+    const lastNameA = getLastName(a.fullName);
+    const lastNameB = getLastName(b.fullName);
+    const comp = lastNameA.localeCompare(lastNameB, 'fa', { sensitivity: 'base' });
+    if (comp !== 0) return comp;
+    return (a.fullName || '').localeCompare(b.fullName || '', 'fa', { sensitivity: 'base' });
+  });
+};
+

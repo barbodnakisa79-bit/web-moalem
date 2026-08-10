@@ -1,14 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   LayoutDashboard,
   Users,
   ClipboardCheck,
   GraduationCap,
   BookOpen,
-  ThumbsUp,
   Calendar,
-  BarChart3,
   Settings,
+  ChevronRight,
+  ChevronLeft,
 } from 'lucide-react';
 
 export type TabType =
@@ -36,6 +36,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
   attendanceCountToday,
   isDarkMode = true,
 }) => {
+  const [isCollapsed, setIsCollapsed] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar_collapsed') === 'true';
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebar_collapsed', String(isCollapsed));
+    }
+  }, [isCollapsed]);
+
   const menuItems = [
     { id: 'dashboard' as TabType, label: 'داشبورد اصلی', shortLabel: 'داشبورد', icon: LayoutDashboard },
     { id: 'attendance' as TabType, label: 'حضور و غیاب', shortLabel: 'حضور و غیاب', icon: ClipboardCheck, badge: attendanceCountToday > 0 ? `${attendanceCountToday} ثبت شده` : null },
@@ -49,18 +62,47 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <>
       {/* Desktop Sidebar (visible on large screens lg and above) */}
-      <aside className={`hidden lg:block w-64 flex-shrink-0 p-4 space-y-1 transition-colors border-l ${
-        isDarkMode
-          ? 'bg-[#1B3E50] border-slate-700/60 text-white'
-          : 'bg-white border-slate-200 text-slate-900'
-      }`}>
-        <div className={`text-xs font-bold px-3 pb-2 uppercase tracking-wider ${
-          isDarkMode ? 'text-teal-400/80' : 'text-slate-400'
+      <aside
+        className={`hidden lg:block flex-shrink-0 p-3 space-y-2 transition-all duration-300 border-l relative ${
+          isCollapsed ? 'w-20' : 'w-64'
+        } ${
+          isDarkMode
+            ? 'bg-[#1B3E50] border-slate-700/60 text-white'
+            : 'bg-white border-slate-200 text-slate-900'
+        }`}
+      >
+        {/* Header / Collapse Toggle Row */}
+        <div className={`flex items-center pb-2 border-b border-slate-200/40 dark:border-slate-700/60 ${
+          isCollapsed ? 'justify-center' : 'justify-between px-2'
         }`}>
-          منوی مدیریت کلاس
+          {!isCollapsed && (
+            <span className={`text-xs font-bold uppercase tracking-wider ${
+              isDarkMode ? 'text-teal-400/80' : 'text-slate-400'
+            }`}>
+              منوی مدیریت
+            </span>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            title={isCollapsed ? 'باز کردن منو' : 'جمع کردن منو'}
+            className={`p-1.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+              isDarkMode
+                ? 'bg-[#143242] hover:bg-[#1A3D50] border-slate-700 text-teal-300 hover:text-white'
+                : 'bg-slate-100 hover:bg-slate-200 border-slate-200 text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            {isCollapsed ? (
+              <ChevronLeft className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+          </button>
         </div>
-        
-        <nav className="space-y-1">
+
+        {/* Menu Items */}
+        <nav className="space-y-1.5">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -69,7 +111,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => onTabChange(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                title={isCollapsed ? item.label : undefined}
+                className={`w-full flex items-center rounded-xl text-sm font-medium transition-all relative ${
+                  isCollapsed ? 'justify-center p-3' : 'justify-between px-3.5 py-2.5'
+                } ${
                   isActive
                     ? isDarkMode
                       ? 'bg-teal-500 text-slate-950 font-extrabold shadow-md shadow-teal-950/40'
@@ -79,23 +124,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  <Icon className={`w-4 h-4 ${
+                <div className="flex items-center gap-3 min-w-0">
+                  <Icon className={`w-5 h-5 shrink-0 ${
                     isActive
                       ? isDarkMode ? 'text-slate-950' : 'text-white'
                       : isDarkMode ? 'text-teal-400' : 'text-slate-500'
                   }`} />
-                  <span>{item.label}</span>
+                  {!isCollapsed && <span className="truncate">{item.label}</span>}
                 </div>
 
-                {item.badge && (
-                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${
+                {!isCollapsed && item.badge && (
+                  <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold shrink-0 ${
                     isActive
                       ? isDarkMode ? 'bg-slate-950/20 text-slate-950' : 'bg-white/20 text-white'
                       : isDarkMode ? 'bg-teal-500/20 text-teal-300 border border-teal-500/30' : 'bg-indigo-100 text-indigo-700'
                   }`}>
                     {item.badge}
                   </span>
+                )}
+
+                {/* Badge Dot in Collapsed Mode */}
+                {isCollapsed && item.badge && (
+                  <span className="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-teal-400 ring-2 ring-[#1B3E50] animate-pulse" />
                 )}
               </button>
             );

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   JalaliDate,
   JALALI_MONTH_NAMES,
@@ -42,6 +42,57 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
   });
 
   const [isOpen, setIsOpen] = useState(false);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [popoverPos, setPopoverPos] = useState<{ top: number; left: number; positionAbove: boolean }>({
+    top: 0,
+    left: 0,
+    positionAbove: false,
+  });
+
+  const updatePopoverPosition = () => {
+    if (buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const popWidth = Math.min(320, window.innerWidth - 24);
+      const popHeight = Math.min(390, window.innerHeight - 24);
+
+      const isSmallScreen = window.innerWidth < 640 || window.innerHeight < 520;
+
+      if (isSmallScreen) {
+        // Center in viewport on small screens to ensure all days are fully visible
+        const top = Math.max(12, (window.innerHeight - popHeight) / 2);
+        const left = Math.max(12, (window.innerWidth - popWidth) / 2);
+        setPopoverPos({ top, left, positionAbove: false });
+      } else {
+        // Position as close as possible to trigger button while staying 100% within viewport
+        let top = rect.bottom + 6;
+        let positionAbove = false;
+        if (top + popHeight > window.innerHeight - 12) {
+          top = rect.top - popHeight - 6;
+          positionAbove = true;
+        }
+        top = Math.max(12, Math.min(top, window.innerHeight - popHeight - 12));
+
+        const btnCenter = rect.left + rect.width / 2;
+        let left = btnCenter - popWidth / 2;
+        left = Math.max(12, Math.min(left, window.innerWidth - popWidth - 12));
+
+        setPopoverPos({ top, left, positionAbove });
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen) {
+      updatePopoverPosition();
+      const handleScrollOrResize = () => updatePopoverPosition();
+      window.addEventListener('resize', handleScrollOrResize);
+      window.addEventListener('scroll', handleScrollOrResize, true);
+      return () => {
+        window.removeEventListener('resize', handleScrollOrResize);
+        window.removeEventListener('scroll', handleScrollOrResize, true);
+      };
+    }
+  }, [isOpen]);
 
   // Month navigation
   const handlePrevMonth = () => {
@@ -82,7 +133,7 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
   const yearsList = Array.from({ length: 11 }, (_, i) => 1398 + i); // 1398 to 1408
 
   const calendarGrid = (
-    <div className={`p-4 rounded-2xl border transition-all ${
+    <div className={`p-4 rounded-2xl border ${
       isDark
         ? 'bg-[#0F2834] border-slate-600 text-white shadow-2xl shadow-slate-950/90 ring-1 ring-slate-700/80'
         : 'bg-white border-slate-200 text-slate-800 shadow-xl'
@@ -242,8 +293,9 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
   }
 
   return (
-    <div className={`relative inline-block text-right ${isOpen ? 'z-[100]' : 'z-auto'}`}>
+    <div className="relative inline-block text-right">
       <button
+        ref={buttonRef}
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center gap-2 border rounded-xl px-3 py-1.5 text-xs font-bold transition-all cursor-pointer ${
@@ -262,17 +314,19 @@ export const ShamsiDatePicker: React.FC<ShamsiDatePickerProps> = ({
       {isOpen && (
         <>
           {/* Backdrop */}
-          <div className="fixed inset-0 z-[990]" onClick={() => setIsOpen(false)} />
-          {/* Popover */}
-          <div className={`absolute top-full mt-2 z-[1000] w-72 sm:w-80 max-w-[calc(100vw-2rem)] ${
-            align === 'left'
-              ? 'right-0 sm:right-auto sm:left-0'
-              : align === 'right'
-              ? 'left-0 sm:left-auto sm:right-0'
-              : align === 'center'
-              ? 'left-1/2 -translate-x-1/2'
-              : 'right-0 sm:right-auto sm:left-0'
-          }`}>
+          <div className="fixed inset-0 z-[9990] bg-black/20 dark:bg-black/40" onClick={() => setIsOpen(false)} />
+          {/* Fixed Popover positioned cleanly without animations */}
+          <div
+            style={{
+              position: 'fixed',
+              zIndex: 9999,
+              top: `${popoverPos.top}px`,
+              left: `${popoverPos.left}px`,
+              width: '320px',
+              maxWidth: 'calc(100vw - 24px)',
+            }}
+            className="select-none"
+          >
             {calendarGrid}
           </div>
         </>

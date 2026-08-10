@@ -470,6 +470,33 @@ export default function App() {
     setStudents((prev) => [...prev, ...createdList]);
   };
 
+  const handleClearAllData = () => {
+    setClassrooms([]);
+    setSelectedClassId('');
+    setStudents([]);
+    setAttendance([]);
+    setScores([]);
+    setJournals([]);
+    setBehavioralPoints([]);
+    setTimetable([]);
+
+    try {
+      localStorage.removeItem('amoozgar_classrooms');
+      localStorage.removeItem('amoozgar_selectedClassId');
+      localStorage.removeItem('amoozgar_students');
+      localStorage.removeItem('amoozgar_attendance');
+      localStorage.removeItem('amoozgar_scores');
+      localStorage.removeItem('amoozgar_journals');
+      localStorage.removeItem('amoozgar_behavioralPoints');
+      localStorage.removeItem('amoozgar_timetable');
+      localStorage.removeItem('amoozgar_schools_details');
+      localStorage.removeItem('amoozgar_custom_schools');
+      localStorage.removeItem('amoozgar_grade_colors');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const activeStudentsCount = students.filter((s) => isStudentInClassroom(s, activeClassroom)).length;
   const todayStr = new Date().toISOString().split('T')[0];
   const attendanceTodayCount = attendance.filter((a) => a.classId === activeClassroom?.id && a.date === todayStr).length;
@@ -689,6 +716,7 @@ export default function App() {
               }}
               onDeleteSchool={handleDeleteSchool}
               onRenameSchool={handleRenameSchool}
+              onClearAllData={handleClearAllData}
             />
           )}
 

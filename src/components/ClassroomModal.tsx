@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Classroom, EvaluationSystem, GRADE_OPTIONS } from '../types';
-import { Plus, X, School, Eye, EyeOff, Users } from 'lucide-react';
+import { Classroom, EvaluationSystem, GRADE_OPTIONS, EDUCATION_STAGES, STAGE_GRADES_MAP } from '../types';
+import { Plus, X, School, Eye, EyeOff, Users, Layers } from 'lucide-react';
+import { ColorPickerSelector } from './ColorPickerSelector';
 
 interface ClassroomModalProps {
   isOpen: boolean;
@@ -16,21 +17,41 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
   classrooms = [],
 }) => {
   const [name, setName] = useState('');
-  const [grade, setGrade] = useState('پایه دهم');
+  const [educationStage, setEducationStage] = useState('متوسطه دوم - نظری تجربی');
+  const [grade, setGrade] = useState('پایه دهم (نظری تجربی)');
   const [subject, setSubject] = useState('');
   const [schoolName, setSchoolName] = useState('');
   const [academicYear, setAcademicYear] = useState('۱۴۰۳-۱۴۰۴');
   const [evaluationSystem, setEvaluationSystem] = useState<EvaluationSystem>('numeric');
+  const [cardBgColor, setCardBgColor] = useState<string>('default');
 
   // Eye toggle state for showing/hiding fields on card
   const [showName, setShowName] = useState(true);
   const [showGrade, setShowGrade] = useState(true);
+  const [showEducationStage, setShowEducationStage] = useState(true);
   const [showSchoolName, setShowSchoolName] = useState(true);
   const [showAcademicYear, setShowAcademicYear] = useState(false);
   const [showStudentCount, setShowStudentCount] = useState(false);
   const [showEvaluationSystem, setShowEvaluationSystem] = useState(false);
 
   const [isCustomSchool, setIsCustomSchool] = useState(false);
+
+  // Compute grade options based on selected education stage
+  const currentGradeOptions = useMemo(() => {
+    if (educationStage && STAGE_GRADES_MAP[educationStage]) {
+      return STAGE_GRADES_MAP[educationStage];
+    }
+    return GRADE_OPTIONS;
+  }, [educationStage]);
+
+  // Synchronize grade if educationStage changes
+  const handleStageChange = (newStage: string) => {
+    setEducationStage(newStage);
+    const available = STAGE_GRADES_MAP[newStage] || GRADE_OPTIONS;
+    if (available && available.length > 0) {
+      setGrade(available[0]);
+    }
+  };
 
   const registeredSchools = useMemo(() => {
     const list = new Set<string>();
@@ -119,13 +140,16 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
 
     onAddClassroom({
       name: name.trim(),
+      educationStage,
       grade: grade.trim(),
       subject: subject.trim(),
       schoolName: schoolName.trim(),
       academicYear: academicYear.trim(),
       evaluationSystem,
+      cardBgColor,
       showName,
       showGrade,
+      showEducationStage,
       showSchoolName,
       showAcademicYear,
       showStudentCount,
@@ -135,6 +159,7 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
     setName('');
     setSubject('');
     setSchoolName('');
+    setCardBgColor('default');
     setShowName(true);
     setShowGrade(true);
     setShowSchoolName(true);
@@ -251,6 +276,38 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
             )}
           </div>
 
+          {/* Education Stage / Track - Eye toggle */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <label className="font-bold">مقطع و شاخه تحصیلی *</label>
+              <button
+                type="button"
+                onClick={() => setShowEducationStage(!showEducationStage)}
+                title={showEducationStage ? 'نمایش مقطع تحصیلی روی کارت' : 'عدم نمایش مقطع روی کارت'}
+                className={`flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-lg border transition-all cursor-pointer select-none ${
+                  showEducationStage
+                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 font-bold'
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}
+              >
+                {showEducationStage ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                <span className="text-[10px]">{showEducationStage ? 'نمایش در کارت' : 'عدم نمایش'}</span>
+              </button>
+            </div>
+            <select
+              required
+              value={educationStage}
+              onChange={(e) => handleStageChange(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:ring-2 focus:ring-indigo-500 cursor-pointer"
+            >
+              {EDUCATION_STAGES.map((stg) => (
+                <option key={stg} value={stg}>
+                  {stg}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Class Name - Eye toggle */}
           <div className="space-y-1">
             <div className="flex items-center justify-between">
@@ -302,7 +359,7 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
                 onChange={(e) => setGrade(e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-800 font-bold focus:ring-2 focus:ring-indigo-500 cursor-pointer"
               >
-                {GRADE_OPTIONS.map((g) => (
+                {currentGradeOptions.map((g) => (
                   <option key={g} value={g}>
                     {g}
                   </option>
@@ -364,6 +421,13 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
               <option value="descriptive">توصیفی (خیلی خوب، خوب، قابل قبول...)</option>
             </select>
           </div>
+
+          {/* Color Selector for Classroom Card */}
+          <ColorPickerSelector
+            selectedColor={cardBgColor}
+            onChangeColor={(col) => setCardBgColor(col)}
+            label="رنگ پس‌زمینه کارت درس:"
+          />
 
           {/* Student Count - Eye toggle */}
           <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-200 bg-slate-50">

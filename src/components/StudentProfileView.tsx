@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Student, Classroom, ScoreRecord, AttendanceRecord, BehavioralPoint } from '../types';
+import { Student, Classroom, ScoreRecord, AttendanceRecord, BehavioralPoint, EDUCATION_STAGES, STAGE_GRADES_MAP, GRADE_OPTIONS } from '../types';
 import {
   ArrowRight,
   User,
@@ -63,6 +63,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
   const [parentPhone, setParentPhone] = useState(student.parentPhone || '');
   const [notes, setNotes] = useState(student.notes || '');
   const [schoolName, setSchoolName] = useState(student.schoolName || classroom.schoolName || '');
+  const [educationStage, setEducationStage] = useState(student.educationStage || classroom.educationStage || 'متوسطه دوم - نظری تجربی');
   const [grade, setGrade] = useState(student.grade || classroom.grade || 'پایه دهم');
   const [isCustomSchool, setIsCustomSchool] = useState(false);
   const [isCustomGrade, setIsCustomGrade] = useState(false);
@@ -198,6 +199,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
       parentPhone: parentPhone.trim() || undefined,
       notes: notes.trim() || undefined,
       schoolName: schoolName.trim() || undefined,
+      educationStage: educationStage.trim() || undefined,
       grade: grade.trim() || undefined,
     };
 
@@ -560,6 +562,30 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                       )}
                     </div>
 
+                    {/* Education Stage / Track */}
+                    <div className="space-y-1.5">
+                      <label className="font-bold block">مقطع و شاخه تحصیلی *</label>
+                      <select
+                        required
+                        value={educationStage}
+                        onChange={(e) => {
+                          const newStage = e.target.value;
+                          setEducationStage(newStage);
+                          const available = STAGE_GRADES_MAP[newStage] || GRADE_OPTIONS;
+                          if (available && available.length > 0) {
+                            setGrade(available[0]);
+                          }
+                        }}
+                        className={`w-full px-3.5 py-2.5 rounded-xl border font-bold text-sm focus:outline-hidden cursor-pointer ${
+                          isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                        }`}
+                      >
+                        {EDUCATION_STAGES.map((stg) => (
+                          <option key={stg} value={stg}>{stg}</option>
+                        ))}
+                      </select>
+                    </div>
+
                     {/* Grade Dropdown */}
                     <div className="space-y-1.5">
                       <label className="font-bold block">پایه تحصیلی *</label>
@@ -668,6 +694,14 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                       <p className="text-base font-bold text-indigo-600 dark:text-teal-300 flex items-center gap-1.5">
                         <School className="w-4 h-4" />
                         <span>{student.schoolName || classroom.schoolName || 'ثبت نشده'}</span>
+                      </p>
+                    </div>
+
+                    <div className={`p-4 rounded-2xl border space-y-1 ${isDarkMode ? 'bg-slate-800/60 border-slate-700' : 'bg-slate-50 border-slate-200'}`}>
+                      <span className="text-slate-400 font-bold block">مقطع و شاخه تحصیلی:</span>
+                      <p className="text-base font-bold text-indigo-600 dark:text-teal-300 flex items-center gap-1.5">
+                        <GraduationCap className="w-4 h-4" />
+                        <span>{student.educationStage || classroom.educationStage || 'ثبت نشده'}</span>
                       </p>
                     </div>
 

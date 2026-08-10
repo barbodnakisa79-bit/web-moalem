@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Classroom, Student, ScoreRecord, AssessmentType } from '../types';
-import { isStudentInClassroom } from '../utils/studentUtils';
+import { isStudentInClassroom, sortStudentsByLastName } from '../utils/studentUtils';
 import { GraduationCap, Plus, Calendar, Save, CheckCircle2, Award, FileSpreadsheet } from 'lucide-react';
 import { ShamsiDatePicker } from './ShamsiDatePicker';
 
@@ -19,7 +19,9 @@ export const GradeTracker: React.FC<GradeTrackerProps> = ({
   onAddScores,
   isDarkMode = false,
 }) => {
-  const classStudents = students.filter((s) => isStudentInClassroom(s, classroom));
+  const classStudents = useMemo(() => {
+    return sortStudentsByLastName(students.filter((s) => isStudentInClassroom(s, classroom)));
+  }, [students, classroom]);
   const classScores = scores.filter((s) => s.classId === classroom.id);
 
   // New Score Session parameters

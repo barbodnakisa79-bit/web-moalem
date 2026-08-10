@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Classroom, Student, AttendanceRecord, AttendanceStatus } from '../types';
-import { isStudentInClassroom } from '../utils/studentUtils';
+import { isStudentInClassroom, sortStudentsByLastName } from '../utils/studentUtils';
 import { ClipboardCheck, Save, CheckCircle2, ChevronDown, Check, X } from 'lucide-react';
 import { ShamsiDatePicker } from './ShamsiDatePicker';
 
@@ -20,7 +20,9 @@ export const AttendanceTracker: React.FC<AttendanceTrackerProps> = ({
   isDarkMode = false,
 }) => {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
-  const classStudents = students.filter((s) => isStudentInClassroom(s, classroom));
+  const classStudents = useMemo(() => {
+    return sortStudentsByLastName(students.filter((s) => isStudentInClassroom(s, classroom)));
+  }, [students, classroom]);
 
   // State for students attendance for selected date
   const [attendanceMap, setAttendanceMap] = useState<{ [studentId: string]: { status: AttendanceStatus; note?: string } }>({});

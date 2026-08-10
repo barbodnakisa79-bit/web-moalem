@@ -35,8 +35,11 @@ import {
   Hash,
   Tag,
   UserCheck,
+  X,
 } from 'lucide-react';
-import { Classroom, Student, AttendanceRecord, ScoreRecord, ClassJournalEntry, BehavioralPoint, TimetableItem, SchoolDetails } from '../types';
+import { Classroom, Student, AttendanceRecord, ScoreRecord, ClassJournalEntry, BehavioralPoint, TimetableItem, SchoolDetails, EDUCATION_STAGES } from '../types';
+import { ColorPickerSelector } from './ColorPickerSelector';
+import { getCardColorClasses, getCardColorStyle } from '../utils/cardColors';
 
 interface SettingsViewProps {
   onOpenDeveloperModal: () => void;
@@ -57,6 +60,7 @@ interface SettingsViewProps {
     journals?: ClassJournalEntry[];
     behavioralPoints?: BehavioralPoint[];
   }) => void;
+  onClearAllData?: () => void;
   onDeleteSchool?: (schoolName: string) => void;
   onRenameSchool?: (oldName: string, newName: string) => void;
 }
@@ -73,6 +77,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   behavioralPoints = [],
   timetable = [],
   onRestoreData,
+  onClearAllData,
   onDeleteSchool,
   onRenameSchool,
 }) => {
@@ -99,11 +104,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     originalName: string;
     name: string;
     schoolType: string;
+    educationStage: string;
     schoolCode: string;
     phone: string;
     principalPhone: string;
     address: string;
     postalCode: string;
+    cardBgColor: string;
   } | null>(null);
 
   const [customSchools, setCustomSchools] = useState<string[]>(() => {
@@ -131,6 +138,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
   const [isBackupOpen, setIsBackupOpen] = useState(false);
   const [isTeacherInfoOpen, setIsTeacherInfoOpen] = useState(false);
+  const [isClearDataOpen, setIsClearDataOpen] = useState(false);
+
+  // Clear data modals state
+  const [showClearWarningStep1, setShowClearWarningStep1] = useState(false);
+  const [showClearWarningStep2, setShowClearWarningStep2] = useState(false);
 
   // Security features state
   const [pinEnabled, setPinEnabled] = useState(() => localStorage.getItem('amoozgar_pin_enabled') === 'true');
@@ -150,6 +162,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const showStatus = (type: 'success' | 'error' | 'info', text: string) => {
     setStatusMessage({ type, text });
     setTimeout(() => setStatusMessage(null), 4000);
+  };
+
+  const handleExecuteClearAllData = () => {
+    setCustomSchools([]);
+    setSchoolsDetailsMap({});
+
+    try {
+      localStorage.removeItem('amoozgar_classrooms');
+      localStorage.removeItem('amoozgar_selectedClassId');
+      localStorage.removeItem('amoozgar_students');
+      localStorage.removeItem('amoozgar_attendance');
+      localStorage.removeItem('amoozgar_scores');
+      localStorage.removeItem('amoozgar_journals');
+      localStorage.removeItem('amoozgar_behavioralPoints');
+      localStorage.removeItem('amoozgar_timetable');
+      localStorage.removeItem('amoozgar_schools_details');
+      localStorage.removeItem('amoozgar_custom_schools');
+      localStorage.removeItem('amoozgar_grade_colors');
+    } catch (e) {
+      console.error(e);
+    }
+
+    onClearAllData?.();
+
+    setShowClearWarningStep2(false);
+    showStatus('success', 'تمامی اطلاعات ثبت‌شده با موفقیت پاک‌سازی شدند.');
   };
 
   const handleSaveSettings = (e: React.FormEvent) => {
@@ -179,11 +217,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       originalName: '',
       name: newSchoolInput.trim() || '',
       schoolType: 'دولتی',
+      educationStage: 'متوسطه دوم - نظری تجربی',
       schoolCode: '',
       phone: '',
       principalPhone: '',
       address: '',
       postalCode: '',
+      cardBgColor: 'default',
     });
   };
 
@@ -193,11 +233,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       originalName: schoolNameStr,
       name: existing.name || schoolNameStr,
       schoolType: existing.schoolType || 'دولتی',
+      educationStage: existing.educationStage || 'متوسطه دوم - نظری تجربی',
       schoolCode: existing.schoolCode || '',
       phone: existing.phone || '',
       principalPhone: existing.principalPhone || '',
       address: existing.address || '',
       postalCode: existing.postalCode || '',
+      cardBgColor: existing.cardBgColor || 'default',
     });
   };
 
@@ -205,7 +247,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (!schoolModalData || !schoolModalData.name.trim()) return;
 
     const trimmedName = schoolModalData.name.trim();
-    const { originalName, schoolType, schoolCode, phone, principalPhone, address, postalCode } = schoolModalData;
+    const { originalName, schoolType, educationStage, schoolCode, phone, principalPhone, address, postalCode, cardBgColor } = schoolModalData;
 
     if (originalName && originalName !== trimmedName) {
       onRenameSchool?.(originalName, trimmedName);
@@ -229,11 +271,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     updatedMap[trimmedName] = {
       name: trimmedName,
       schoolType,
+      educationStage,
       schoolCode,
       phone,
       principalPhone,
       address,
       postalCode,
+      cardBgColor,
     };
 
     setSchoolsDetailsMap(updatedMap);
@@ -756,15 +800,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                                   </div>
                                 </div>
 
-                                {details.schoolType && (
-                                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0 border ${
-                                    isDarkMode
-                                      ? 'bg-teal-500/15 text-teal-300 border-teal-500/30'
-                                      : 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                  }`}>
-                                    {details.schoolType}
-                                  </span>
-                                )}
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {details.educationStage && (
+                                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0 border ${
+                                      isDarkMode
+                                        ? 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                                        : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    }`}>
+                                      {details.educationStage}
+                                    </span>
+                                  )}
+                                  {details.schoolType && (
+                                    <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold shrink-0 border ${
+                                      isDarkMode
+                                        ? 'bg-teal-500/15 text-teal-300 border-teal-500/30'
+                                        : 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                    }`}>
+                                      {details.schoolType}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               {/* Optional Details preview */}
@@ -1223,6 +1278,70 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               )}
             </div>
 
+            {/* Accordion 6: Data Cleanup & Reset (پاکسازی و بازنشانی اطلاعات) */}
+            <div className={`rounded-2xl border overflow-hidden transition-all shadow-md ${
+              isDarkMode
+                ? 'bg-[#102A36] text-white border-rose-900/60'
+                : 'bg-white text-slate-800 border-rose-200 shadow-xs'
+            }`}>
+              <button
+                type="button"
+                onClick={() => setIsClearDataOpen(!isClearDataOpen)}
+                className={`w-full flex items-center justify-between p-5 text-right font-bold text-base transition-colors ${
+                  isDarkMode ? 'hover:bg-rose-500/10' : 'hover:bg-rose-50/50'
+                }`}
+              >
+                <div className="flex items-center gap-3 text-rose-600 dark:text-rose-400">
+                  <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${isClearDataOpen ? 'rotate-180' : ''}`} />
+                  <span className={`${isDarkMode ? 'text-white' : 'text-slate-900'} font-extrabold text-base sm:text-lg`}>
+                    پاکسازی و بازنشانی اطلاعات
+                  </span>
+                </div>
+                <Trash2 className="w-5 h-5 text-rose-500 dark:text-rose-400" />
+              </button>
+
+              {isClearDataOpen && (
+                <div className={`p-5 pt-3 border-t space-y-4 animate-fade-in ${
+                  isDarkMode ? 'border-rose-900/40' : 'border-rose-100'
+                }`}>
+                  <div className={`border rounded-2xl p-5 space-y-4 ${
+                    isDarkMode
+                      ? 'bg-rose-950/20 border-rose-900/50 text-white'
+                      : 'bg-rose-50/60 border-rose-200 text-slate-800'
+                  }`}>
+                    <div className="flex items-center gap-2 font-bold text-sm text-rose-600 dark:text-rose-400">
+                      <AlertTriangle className="w-5 h-5" />
+                      <span>پاکسازی کامل تمامی داده‌های ثبت‌شده در نرم‌افزار</span>
+                    </div>
+
+                    <p className={`text-xs leading-relaxed ${
+                      isDarkMode ? 'text-slate-300' : 'text-slate-600'
+                    }`}>
+                      با اجرای این عملیات، کلیه اسامی مدارس، کلاس‌ها، دروس، دانش‌آموزان، نمرات، حضور و غیاب، یادداشت‌های کلاسی و برنامه هفتگی به صورت کامل پاک خواهند شد.
+                    </p>
+
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs flex items-start gap-2">
+                      <Info className="w-4 h-4 shrink-0 mt-0.5" />
+                      <span>
+                        توجه: فایل‌های پشتیبان قبلی که در حافظه دستگاه شما (پوشه Downloads) ذخیره شده‌اند، کاملاً محفوظ باقی می‌مانند و حذف نخواهند شد.
+                      </span>
+                    </div>
+
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={() => setShowClearWarningStep1(true)}
+                        className="w-full sm:w-auto font-extrabold py-3.5 px-6 rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-md flex items-center justify-center gap-2 text-sm transition-all active:scale-98 cursor-pointer"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                        <span>پاکسازی کامل اطلاعات وارد شده</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
           </div>
 
           {/* Quick Info & Developer Banner */}
@@ -1233,8 +1352,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span>دستیار هوشمند معلم</span>
               </div>
               <h3 className="text-lg font-extrabold">طراحی شده جهت سهولت تدریس و ارزیابی کلاسی</h3>
-              <p className="text-xs text-purple-200 leading-relaxed max-w-lg">
-                در صورت نیاز به افزودن قابلیت‌های سفارشی، تبدیل کدهای پروژه یا گزارش مشکلات، می‌توانید مستقیماً با طراح و سازنده سامانه ارتباط برقرار کنید.
+              <p className="text-xs sm:text-sm text-purple-200 leading-relaxed max-w-lg">
+                در صورت نیاز به افزودن قابلیتهای سفارشی،گزارش مشکلات،انتقاد یا پیشنهاد می توانید مستقیماً با طراح و سازنده سامانه ارتباط برقرار کنید.
               </p>
             </div>
 
@@ -1558,6 +1677,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
               </div>
 
+              {/* Education Stage / Track - Mandatory */}
+              <div className="space-y-1">
+                <label className="font-bold text-slate-700 dark:text-slate-200 flex items-center gap-1">
+                  <span>مقطع و شاخه تحصیلی مدرسه:</span>
+                  <span className="text-rose-500">*</span>
+                </label>
+                <select
+                  required
+                  value={schoolModalData.educationStage || 'متوسطه دوم - نظری تجربی'}
+                  onChange={(e) => setSchoolModalData({ ...schoolModalData, educationStage: e.target.value })}
+                  className={`w-full px-3.5 py-2 rounded-xl font-bold border focus:outline-none transition-all cursor-pointer ${
+                    isDarkMode
+                      ? 'bg-slate-800 border-slate-700 text-white focus:border-teal-400'
+                      : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white focus:border-indigo-500'
+                  }`}
+                >
+                  {EDUCATION_STAGES.map((stg) => (
+                    <option key={stg} value={stg}>
+                      {stg}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               {/* School Code & Phone */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 <div className="space-y-1">
@@ -1682,6 +1825,121 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 }`}
               >
                 انصراف
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Data Warning Modal - Step 1 */}
+      {showClearWarningStep1 && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1B3E50] dark:text-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border border-rose-200 dark:border-rose-900/60 animate-scale-in">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700/80">
+              <div className="flex items-center gap-2.5 text-rose-600 dark:text-rose-400 font-black text-base">
+                <AlertTriangle className="w-6 h-6" />
+                <span>هشدار اول: پاکسازی اطلاعات (مرحله ۱ از ۲)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowClearWarningStep1(false)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-100 leading-relaxed">
+                آیا از شروع فرایند پاکسازی کامل اطلاعات اطمینان دارید؟
+              </p>
+              
+              <div className="p-3.5 rounded-2xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900/50 space-y-2 text-xs text-rose-900 dark:text-rose-200">
+                <p className="font-bold">با تایید این مرحله، موارد زیر به طور کامل پاک خواهند شد:</p>
+                <ul className="list-disc list-inside space-y-1 pr-1 font-semibold opacity-90">
+                  <li>لیست تمام مدارس، پایه تحصیلی و کلاس‌ها</li>
+                  <li>اسامی و پرونده‌های کامل دانش‌آموزان</li>
+                  <li>کلیه نمرات، ارزشیابی‌ها و حضور و غیاب‌ها</li>
+                  <li>دفتر کلاسی، موارد انضباطی و برنامه هفتگی</li>
+                </ul>
+              </div>
+
+              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                * نکته: فایل‌های پشتیبان دانلودشده قبلی (ZIP/Excel) روی دستگاه شما کاملاً محفوظ باقی می‌مانند و آسیب نمی‌بینند.
+              </p>
+            </div>
+
+            <div className="pt-2 flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setShowClearWarningStep1(false)}
+                className="px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                انصراف
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowClearWarningStep1(false);
+                  setShowClearWarningStep2(true);
+                }}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1.5"
+              >
+                <span>تایید و ورود به مرحله بعد (۲ از ۲)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Clear Data Warning Modal - Step 2 (Final Confirmation) */}
+      {showClearWarningStep2 && (
+        <div className="fixed inset-0 z-50 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-[#1B3E50] dark:text-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border-2 border-rose-600 animate-scale-in">
+            <div className="flex items-center justify-between border-b pb-3 border-slate-100 dark:border-slate-700/80">
+              <div className="flex items-center gap-2.5 text-rose-600 dark:text-rose-400 font-black text-base">
+                <AlertTriangle className="w-6 h-6 animate-pulse" />
+                <span>هشدار نهایی (مرحله ۲ از ۲)</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowClearWarningStep2(false)}
+                className="p-1 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-4 rounded-2xl bg-rose-600 text-white space-y-2 text-center shadow-inner">
+                <p className="font-black text-base">اخطار جدی: حذف دائمی اطلاعات!</p>
+                <p className="text-xs text-rose-100 leading-relaxed font-semibold">
+                  شما در حال حذف تمامی داده‌های آموزگار هستید. این عملیات غیرقابل بازگشت می‌باشد. آیا از تصمیم خود کاملاً اطمینان دارید؟
+                </p>
+              </div>
+
+              <p className="text-xs font-bold text-center text-slate-600 dark:text-slate-300">
+                با کلیک بر روی دکمه زیر، تمامی اطلاعات نرم‌افزار فوراً پاکسازی خواهند شد.
+              </p>
+            </div>
+
+            <div className="pt-2 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setShowClearWarningStep2(false)}
+                className="px-5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-600 text-slate-700 dark:text-slate-300 font-bold text-xs hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+              >
+                انصراف و لغو
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExecuteClearAllData}
+                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs shadow-lg transition-all active:scale-95 cursor-pointer flex items-center gap-2"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>حذف نهایی و پاکسازی کامل اطلاعات</span>
               </button>
             </div>
           </div>

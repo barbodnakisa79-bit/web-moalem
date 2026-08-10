@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { Classroom, Student, ScoreRecord, AttendanceRecord, BehavioralPoint, GRADE_OPTIONS } from '../types';
-import { isStudentInClassroom } from '../utils/studentUtils';
+import { Classroom, Student, ScoreRecord, AttendanceRecord, BehavioralPoint, GRADE_OPTIONS, EDUCATION_STAGES, STAGE_GRADES_MAP } from '../types';
+import { isStudentInClassroom, sortStudentsByLastName } from '../utils/studentUtils';
 import { Users, Search, Plus, Phone, FileText, Trash2, X } from 'lucide-react';
 import { StudentProfileModal } from './StudentProfileModal';
 
@@ -66,6 +66,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
   const [parentPhone, setParentPhone] = useState('');
   const [notes, setNotes] = useState('');
   const [schoolName, setSchoolName] = useState(classroom.schoolName || '');
+  const [educationStage, setEducationStage] = useState(classroom.educationStage || 'متوسطه دوم - نظری تجربی');
   const [grade, setGrade] = useState(classroom.grade || 'پایه دهم');
   const [isCustomSchool, setIsCustomSchool] = useState(false);
   const [isCustomGrade, setIsCustomGrade] = useState(false);
@@ -263,7 +264,8 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
 
   // Compute registered grades dropdown list
   const availableGrades = useMemo(() => {
-    const list = new Set<string>(GRADE_OPTIONS);
+    const baseGrades = STAGE_GRADES_MAP[educationStage] || GRADE_OPTIONS;
+    const list = new Set<string>(baseGrades);
 
     if (classrooms && Array.isArray(classrooms)) {
       classrooms.forEach((c) => {
@@ -278,7 +280,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
     }
 
     return Array.from(list);
-  }, [classrooms, classroom]);
+  }, [classrooms, classroom, educationStage]);
 
   // Initialize form when opening modal
   useEffect(() => {
@@ -287,6 +289,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
       setSchoolName(defaultSchool);
       setIsCustomSchool(false);
 
+      const defaultStage = classroom.educationStage || 'متوسطه دوم - نظری تجربی';
+      setEducationStage(defaultStage);
+
       const defaultGrade = classroom.grade || 'پایه دهم';
       setGrade(defaultGrade);
       setIsCustomGrade(false);
@@ -294,11 +299,12 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
   }, [showAddModal, classroom, registeredSchools]);
 
   const classStudents = useMemo(() => {
-    return students.filter((s) => {
+    const list = students.filter((s) => {
       if (!isStudentInSchool(s, selectedSchoolFilter)) return false;
       if (!isStudentInGrade(s, selectedGradeFilter)) return false;
       return true;
     });
+    return sortStudentsByLastName(list);
   }, [students, classrooms, selectedSchoolFilter, selectedGradeFilter]);
 
   const filteredStudents = classStudents.filter(
@@ -320,6 +326,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
       parentPhone: parentPhone.trim() || undefined,
       notes: notes.trim() || undefined,
       schoolName: schoolName.trim() || classroom.schoolName || undefined,
+      educationStage: educationStage.trim() || classroom.educationStage || undefined,
       grade: grade.trim() || classroom.grade || undefined,
       className: classroom.name,
     });
@@ -687,6 +694,31 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                       }`}
                     />
                   )}
+                </div>
+
+                {/* Education Stage / Track */}
+                <div className="space-y-1">
+                  <label className="font-bold block">مقطع و شاخه تحصیلی *</label>
+                  <select
+                    required
+                    value={educationStage}
+                    onChange={(e) => {
+                      const newStage = e.target.value;
+                      setEducationStage(newStage);
+                      const available = STAGE_GRADES_MAP[newStage] || GRADE_OPTIONS;
+                      if (available && available.length > 0) {
+                        setGrade(available[0]);
+                        setIsCustomGrade(false);
+                      }
+                    }}
+                    className={`w-full rounded-xl px-3 py-2 border font-bold focus:outline-hidden cursor-pointer ${
+                      isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
+                    }`}
+                  >
+                    {EDUCATION_STAGES.map((stg) => (
+                      <option key={stg} value={stg}>{stg}</option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Grade Dropdown */}
