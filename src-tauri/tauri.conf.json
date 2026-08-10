@@ -34,7 +34,7 @@
     ],
     "windows": {
       "nsis": {
-        "languages": ["Persian", "English"],
+       "languages": ["Farsi", "English"],
         "displayLanguageSelector": true
       }
     }
