@@ -3,7 +3,7 @@ name: deploy-pwa
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches: [production]
 
 permissions:
   contents: read
