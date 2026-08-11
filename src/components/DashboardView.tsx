@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Classroom, Student, AttendanceRecord, ScoreRecord, ClassJournalEntry } from '../types';
-import { isStudentInClassroom } from '../utils/studentUtils';
+import { isStudentInClassroom, normalizePersianNumbers, parseGradeNumber } from '../utils/studentUtils';
 import { ClipboardCheck, GraduationCap, BookOpen, Calendar, CheckCircle, Plus, Check, X, Clock, ArrowRight } from 'lucide-react';
 import { ShamsiDatePicker } from './ShamsiDatePicker';
 import { getTodayJalali, jalaliToIsoString } from '../utils/jalali';
@@ -53,6 +53,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     e.preventDefault();
     if (!selectedStudentForGrade) return;
 
+    const parsedNum = parseGradeNumber(quickGradeValue, 0, 20);
+
     const newScore: ScoreRecord = {
       id: `score-quick-${Date.now()}`,
       classId: classroom.id,
@@ -60,7 +62,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       date: todayIsoStr,
       type: 'continuous',
       title: quickGradeTitle.trim() || 'نمره کلاسی',
-      scoreNumeric: classroom.evaluationSystem === 'numeric' ? Number(quickGradeValue) : undefined,
+      scoreNumeric: classroom.evaluationSystem === 'numeric' ? (parsedNum ?? 18) : undefined,
       scoreDescriptive: classroom.evaluationSystem === 'descriptive' ? quickGradeDescriptive : undefined,
       maxScore: 20,
     };
@@ -368,14 +370,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <div className="space-y-1">
                   <label className="font-bold block">نمره (۰ تا ۲۰)</label>
                   <input
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    max="20"
+                    type="text"
+                    inputMode="decimal"
+                    dir="ltr"
+                    placeholder="0 - 20"
                     required
                     value={quickGradeValue}
-                    onChange={(e) => setQuickGradeValue(e.target.value)}
-                    className={`w-full px-3 py-2 rounded-xl border font-bold text-sm focus:outline-hidden ${
+                    onChange={(e) => setQuickGradeValue(normalizePersianNumbers(e.target.value))}
+                    onBlur={() => {
+                      const parsed = parseGradeNumber(quickGradeValue, 0, 20);
+                      if (parsed !== undefined) setQuickGradeValue(parsed);
+                    }}
+                    className={`w-full px-3 py-2 rounded-xl border font-bold text-sm focus:outline-hidden text-center ${
                       isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
                     }`}
                   />

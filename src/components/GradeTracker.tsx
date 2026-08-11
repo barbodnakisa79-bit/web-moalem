@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Classroom, Student, ScoreRecord, AssessmentType } from '../types';
-import { isStudentInClassroom, sortStudentsByLastName } from '../utils/studentUtils';
+import { isStudentInClassroom, sortStudentsByLastName, normalizePersianNumbers, parseGradeNumber } from '../utils/studentUtils';
 import { GraduationCap, Plus, Calendar, Save, CheckCircle2, Award, FileSpreadsheet } from 'lucide-react';
 import { ShamsiDatePicker } from './ShamsiDatePicker';
 
@@ -30,27 +30,46 @@ export const GradeTracker: React.FC<GradeTrackerProps> = ({
   const [assessmentDate, setAssessmentDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [maxScore, setMaxScore] = useState<number>(20);
 
-  // Score mapping for active form
+  // Score mapping for active form (supports raw string and parsed number)
   const [scoresForm, setScoresForm] = useState<{
-    [studentId: string]: { numeric?: number; descriptive?: 'خیلی خوب' | 'خوب' | 'قابل قبول' | 'نیاز به تلاش بیشتر'; note?: string };
+    [studentId: string]: { rawNumeric?: string; numeric?: number; descriptive?: 'خیلی خوب' | 'خوب' | 'قابل قبول' | 'نیاز به تلاش بیشتر'; note?: string };
   }>(() => {
     const initial: any = {};
     classStudents.forEach((s) => {
-      initial[s.id] = { numeric: 20, descriptive: 'خیلی خوب', note: '' };
+      initial[s.id] = { rawNumeric: '20', numeric: 20, descriptive: 'خیلی خوب', note: '' };
     });
     return initial;
   });
 
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const handleScoreChange = (studentId: string, val: number) => {
+  const handleRawScoreChange = (studentId: string, val: string) => {
+    const normalized = normalizePersianNumbers(val);
     setScoresForm((prev) => ({
       ...prev,
       [studentId]: {
         ...prev[studentId],
-        numeric: Math.min(maxScore, Math.max(0, val)),
+        rawNumeric: normalized,
+        numeric: parseGradeNumber(normalized, 0, maxScore),
       },
     }));
+  };
+
+  const handleRawScoreBlur = (studentId: string) => {
+    setScoresForm((prev) => {
+      const current = prev[studentId];
+      if (!current) return prev;
+      const parsed = parseGradeNumber(current.rawNumeric ?? current.numeric, 0, maxScore);
+      const finalVal = parsed !== undefined ? parsed : 0;
+      return {
+        ...prev,
+        [studentId]: {
+          ...current,
+          rawNumeric: String(finalVal),
+          numeric: finalVal,
+        },
+      };
+    });
   };
 
   const handleDescriptiveChange = (studentId: string, val: any) => {
@@ -68,6 +87,7 @@ export const GradeTracker: React.FC<GradeTrackerProps> = ({
 
     const newRecords: ScoreRecord[] = classStudents.map((student) => {
       const entry = scoresForm[student.id] || {};
+      const parsedVal = parseGradeNumber(entry.rawNumeric ?? entry.numeric, 0, maxScore) ?? 20;
       return {
         id: `sc-${student.id}-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
         classId: classroom.id,
@@ -76,7 +96,7 @@ export const GradeTracker: React.FC<GradeTrackerProps> = ({
         type: assessmentType,
         title: assessmentTitle,
         maxScore: maxScore,
-        scoreNumeric: classroom.evaluationSystem === 'numeric' ? Number(entry.numeric ?? 20) : undefined,
+        scoreNumeric: classroom.evaluationSystem === 'numeric' ? parsedVal : undefined,
         scoreDescriptive: classroom.evaluationSystem === 'descriptive' ? entry.descriptive || 'خیلی خوب' : undefined,
         note: entry.note,
       };
@@ -86,6 +106,7 @@ export const GradeTracker: React.FC<GradeTrackerProps> = ({
     setSaveSuccess(true);
     setTimeout(() => setSaveSuccess(false), 2500);
   };
+
 
   // Group existing scores by assessment title
   const titleGroups = Array.from(new Set(classScores.map((s) => s.title)));
@@ -171,15 +192,44 @@ export const GradeTracker: React.FC<GradeTrackerProps> = ({
                 {/* Score Input Control */}
                 <div className="shrink-0">
                   {classroom.evaluationSystem === 'numeric' ? (
-                    <input
-                      type="number"
-                      step="0.25"
-                      min={0}
-                      max={maxScore}
-                      value={current.numeric ?? 20}
-                      onChange={(e) => handleScoreChange(student.id, parseFloat(e.target.value) || 0)}
-                      className="w-16 text-center font-bold text-indigo-700 dark:text-teal-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl py-1 px-1 text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 dark:focus:ring-teal-400 focus:outline-hidden"
-                    />
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const curr = parseGradeNumber(current.rawNumeric ?? current.numeric, 0, maxScore) ?? 0;
+                          const next = Math.max(0, Math.round((curr - 0.5) * 2) / 2);
+                          handleRawScoreChange(student.id, String(next));
+                        }}
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 active:scale-95 text-slate-800 dark:text-slate-100 font-black text-base flex items-center justify-center shrink-0 cursor-pointer select-none transition-all"
+                        title="کاهش نیم نمره"
+                      >
+                        -
+                      </button>
+
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        dir="ltr"
+                        value={current.rawNumeric ?? (current.numeric !== undefined ? String(current.numeric) : '20')}
+                        onChange={(e) => handleRawScoreChange(student.id, e.target.value)}
+                        onBlur={() => handleRawScoreBlur(student.id)}
+                        placeholder="0-20"
+                        className="w-16 sm:w-20 text-center font-black text-indigo-700 dark:text-teal-300 bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-xl py-1 px-1 text-xs sm:text-sm focus:ring-2 focus:ring-indigo-500 dark:focus:ring-teal-400 focus:outline-hidden"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const curr = parseGradeNumber(current.rawNumeric ?? current.numeric, 0, maxScore) ?? 0;
+                          const next = Math.min(maxScore, Math.round((curr + 0.5) * 2) / 2);
+                          handleRawScoreChange(student.id, String(next));
+                        }}
+                        className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 active:scale-95 text-slate-800 dark:text-slate-100 font-black text-base flex items-center justify-center shrink-0 cursor-pointer select-none transition-all"
+                        title="افزایش نیم نمره"
+                      >
+                        +
+                      </button>
+                    </div>
                   ) : (
                     <select
                       value={current.descriptive || 'خیلی خوب'}

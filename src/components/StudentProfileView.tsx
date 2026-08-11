@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { ShamsiDatePicker } from './ShamsiDatePicker';
 import { isoStringToJalali, formatJalaliDate, getTodayJalali, jalaliToIsoString } from '../utils/jalali';
+import { normalizePersianNumbers, parseGradeNumber } from '../utils/studentUtils';
 
 interface StudentProfileViewProps {
   student: Student;
@@ -212,6 +213,8 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
   // Handle Save New Grade
   const handleSaveGrade = (e: React.FormEvent) => {
     e.preventDefault();
+    const parsedVal = parseGradeNumber(gradeValue, 0, 20);
+
     const newScoreRecord: ScoreRecord = {
       id: `score-${Date.now()}`,
       classId: classroom.id,
@@ -219,7 +222,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
       date: gradeDate,
       title: gradeTitle.trim() || 'ارزیابی کلاسی',
       type: gradeType,
-      scoreNumeric: classroom.evaluationSystem === 'numeric' ? Number(gradeValue) : undefined,
+      scoreNumeric: classroom.evaluationSystem === 'numeric' ? (parsedVal ?? 20) : undefined,
       scoreDescriptive: classroom.evaluationSystem === 'descriptive' ? gradeDescriptive : undefined,
       maxScore: 20,
       note: gradeNote.trim() || undefined,
@@ -791,14 +794,18 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                       <div className="space-y-1.5">
                         <label className="font-bold block">نمره (۰ تا ۲۰) *</label>
                         <input
-                          type="number"
-                          step="0.25"
-                          min="0"
-                          max="20"
+                          type="text"
+                          inputMode="decimal"
+                          dir="ltr"
+                          placeholder="0 - 20"
                           required
                           value={gradeValue}
-                          onChange={(e) => setGradeValue(e.target.value)}
-                          className={`w-full px-3.5 py-2 rounded-xl border font-bold text-sm focus:outline-hidden ${
+                          onChange={(e) => setGradeValue(normalizePersianNumbers(e.target.value))}
+                          onBlur={() => {
+                            const parsed = parseGradeNumber(gradeValue, 0, 20);
+                            if (parsed !== undefined) setGradeValue(String(parsed));
+                          }}
+                          className={`w-full px-3.5 py-2 rounded-xl border font-bold text-sm focus:outline-hidden text-center ${
                             isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-white border-slate-200 text-slate-800'
                           }`}
                         />
