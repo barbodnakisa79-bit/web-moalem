@@ -62,3 +62,33 @@ export const sortStudentsByLastName = (students: Student[]): Student[] => {
   });
 };
 
+/**
+ * Normalizes Persian/Arabic digits, commas, slashes, and Persian decimal characters
+ * to standard ASCII numbers and decimal point.
+ */
+export const normalizePersianNumbers = (val: string | number | undefined | null): string => {
+  if (val === undefined || val === null) return '';
+  const str = String(val);
+  return str
+    .replace(/[۰-۹]/g, (d) => (d.charCodeAt(0) - 1776).toString())
+    .replace(/[٠-٩]/g, (d) => (d.charCodeAt(0) - 1632).toString())
+    .replace(/[٫,/]/g, '.');
+};
+
+/**
+ * Parses a string or number into a valid grade number bounded between min and max (default 0 to 20).
+ * Returns undefined if string is empty or invalid.
+ */
+export const parseGradeNumber = (
+  val: string | number | undefined | null,
+  min: number = 0,
+  max: number = 20
+): number | undefined => {
+  if (val === undefined || val === null || String(val).trim() === '') return undefined;
+  const normalized = normalizePersianNumbers(val);
+  const parsed = parseFloat(normalized);
+  if (isNaN(parsed)) return undefined;
+  return Math.min(max, Math.max(min, parsed));
+};
+
+
