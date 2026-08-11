@@ -3,7 +3,7 @@ name: build-windows-exe
 on:
   workflow_dispatch:
   push:
-    branches: [main, master]
+    branches: [production]
 
 jobs:
   build:
