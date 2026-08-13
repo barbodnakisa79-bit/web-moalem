@@ -1,4 +1,4 @@
-import { Student, Classroom } from '../types';
+import { Student, Classroom, STAGE_GRADES_MAP, GRADE_OPTIONS } from '../types';
 
 /**
  * Checks whether a student belongs to a given classroom/subject.
@@ -36,6 +36,69 @@ export const isStudentInClassroom = (student: Student, classroom?: Classroom | n
   }
 
   return false;
+};
+
+/**
+ * Matches a grade title (e.g. "پایه دوازدهم (متوسطه دوم)" or "پایه دوازدهم")
+ * to the appropriate grade string corresponding to the given education stage
+ * (e.g., "پایه دوازدهم (نظری انسانی)").
+ */
+export const matchGradeToStage = (currentGrade: string | undefined, stage: string | undefined): string => {
+  if (!stage || !STAGE_GRADES_MAP[stage]) {
+    return currentGrade || GRADE_OPTIONS[0];
+  }
+
+  const validGradesForStage = STAGE_GRADES_MAP[stage];
+  if (!currentGrade || !currentGrade.trim()) {
+    return validGradesForStage[0];
+  }
+
+  const trimmed = currentGrade.trim();
+
+  // If it's already an exact match in validGradesForStage
+  if (validGradesForStage.includes(trimmed)) {
+    return trimmed;
+  }
+
+  // Find match by grade level keywords
+  const keywords = [
+    { key: 'دوازدهم', idx: 2 },
+    { key: '12', idx: 2 },
+    { key: 'یازدهم', idx: 1 },
+    { key: '11', idx: 1 },
+    { key: 'دهم', idx: 0 },
+    { key: '10', idx: 0 },
+    { key: 'نهم', idx: 2 },
+    { key: '9', idx: 2 },
+    { key: 'هشتم', idx: 1 },
+    { key: '8', idx: 1 },
+    { key: 'هفتم', idx: 0 },
+    { key: '7', idx: 0 },
+    { key: 'ششم', idx: 5 },
+    { key: '6', idx: 5 },
+    { key: 'پنجم', idx: 4 },
+    { key: '5', idx: 4 },
+    { key: 'چهارم', idx: 3 },
+    { key: '4', idx: 3 },
+    { key: 'سوم', idx: 2 },
+    { key: '3', idx: 2 },
+    { key: 'دوم', idx: 1 },
+    { key: '2', idx: 1 },
+    { key: 'اول', idx: 0 },
+    { key: '1', idx: 0 },
+  ];
+
+  for (const { key, idx } of keywords) {
+    if (trimmed.includes(key)) {
+      if (validGradesForStage[idx]) {
+        return validGradesForStage[idx];
+      }
+      const matchedByText = validGradesForStage.find((g) => g.includes(key));
+      if (matchedByText) return matchedByText;
+    }
+  }
+
+  return validGradesForStage[0];
 };
 
 /**
