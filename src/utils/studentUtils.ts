@@ -102,6 +102,20 @@ export const matchGradeToStage = (currentGrade: string | undefined, stage: strin
 };
 
 /**
+ * Normalizes Persian/Arabic letters (ي -> ی, ك -> ک, zero-width spaces, trim) for reliable fuzzy string comparisons.
+ */
+export const normalizePersianText = (val: string | undefined | null): string => {
+  if (!val) return '';
+  return String(val)
+    .replace(/ي/g, 'ی')
+    .replace(/ك/g, 'ک')
+    .replace(/ة/g, 'ه')
+    .replace(/[\u200C\u200B\uFEFF]/g, ' ') // half-space/zero-width space to space
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+/**
  * Extracts the last name (نام خانوادگی) from a student's full name.
  */
 export const getLastName = (fullName: string | undefined): string => {
