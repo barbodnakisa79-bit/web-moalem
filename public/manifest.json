@@ -3,25 +3,25 @@
   "name": "وب آموزگار | دستیار هوشمند و دفتر معلم",
   "icons": [
     {
-      "src": "/icon-192.png",
+      "src": "./icon-192.png",
       "type": "image/png",
       "sizes": "192x192",
       "purpose": "any maskable"
     },
     {
-      "src": "/icon-512.png",
+      "src": "./icon-512.png",
       "type": "image/png",
       "sizes": "512x512",
       "purpose": "any maskable"
     }
   ],
-  "id": "/",
-  "start_url": "/",
+  "id": "./",
+  "start_url": "./",
   "background_color": "#0f172a",
   "theme_color": "#4f46e5",
   "display": "standalone",
   "orientation": "any",
-  "scope": "/",
+  "scope": "./",
   "dir": "rtl",
   "lang": "fa",
   "description": "نرم‌افزار مدیریت کلاس، نمره‌دهی، حضور و غیاب و کارنامه معلم بدون نیاز به اینترنت"

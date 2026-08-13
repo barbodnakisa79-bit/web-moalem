@@ -1,16 +1,17 @@
-const CACHE_NAME = 'amoozgar-v1';
+const CACHE_NAME = 'amoozgar-v2';
+const SCOPE_PATH = self.location.pathname.replace(/\/sw\.js$/, '/');
+
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/favicon.ico'
+  SCOPE_PATH,
+  SCOPE_PATH + 'index.html',
+  SCOPE_PATH + 'manifest.json'
 ];
 
 // 1. Install Event - Cache App Shell & Assets
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      console.log('[Service Worker] Caching static assets');
+      console.log('[Service Worker] Caching static assets for scope:', SCOPE_PATH);
       return cache.addAll(STATIC_ASSETS);
     }).then(() => self.skipWaiting())
   );
@@ -34,24 +35,25 @@ self.addEventListener('activate', (event) => {
 
 // 3. Fetch Event - Stale-while-revalidate & Cache-First strategy with Offline Fallback
 self.addEventListener('fetch', (event) => {
-  // Skip non-GET requests or browser extension requests
+  // Skip non-GET requests
   if (event.request.method !== 'GET') return;
-  const url = new URL(event.request.url);
 
   // Handle HTML navigation requests (SPA support)
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
         .then((networkResponse) => {
-          // Cache the latest HTML
-          return caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, networkResponse.clone());
-            return networkResponse;
-          });
+          if (networkResponse && networkResponse.status === 200) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
+          return networkResponse;
         })
         .catch(() => {
           // Return cached index.html when offline
-          return caches.match('/index.html') || caches.match('/');
+          return caches.match(SCOPE_PATH + 'index.html') || caches.match(SCOPE_PATH) || caches.match('./index.html');
         })
     );
     return;
@@ -62,7 +64,7 @@ self.addEventListener('fetch', (event) => {
     caches.match(event.request).then((cachedResponse) => {
       const fetchPromise = fetch(event.request)
         .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          if (networkResponse && networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
             caches.open(CACHE_NAME).then((cache) => {
               cache.put(event.request, responseToCache);
@@ -71,7 +73,7 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch((err) => {
-          console.log('[SW] Network fetch failed, returning cached version if available', err);
+          console.log('[SW] Network fetch failed, returning cached asset if available', err);
         });
 
       return cachedResponse || fetchPromise;
