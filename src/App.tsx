@@ -29,6 +29,7 @@ import { StudentProfileModal } from './components/StudentProfileModal';
 import { SubjectCardsView } from './components/SubjectCardsView';
 import { LockScreen } from './components/LockScreen';
 import { isStudentInClassroom } from './utils/studentUtils';
+import { setPersistentItem, getPersistentItem } from './utils/indexedDBStorage';
 
 export default function App() {
   const [classrooms, setClassrooms] = useState<Classroom[]>(() => {
@@ -140,93 +141,82 @@ export default function App() {
   // Active student profile modal state
   const [selectedProfileStudent, setSelectedProfileStudent] = useState<Student | null>(null);
 
-  // Sync state to LocalStorage
+  // Recovery effect: Restore from IndexedDB if LocalStorage was cleared
   useEffect(() => {
-    try {
-      localStorage.setItem('amoozgar_classrooms', JSON.stringify(classrooms));
-    } catch (e) {
-      console.error(e);
+    let isMounted = true;
+    async function restoreFromIndexedDB() {
+      try {
+        const storedClassrooms = await getPersistentItem('amoozgar_classrooms', null);
+        if (storedClassrooms && isMounted) setClassrooms(storedClassrooms);
+
+        const storedStudents = await getPersistentItem('amoozgar_students', null);
+        if (storedStudents && isMounted) setStudents(storedStudents);
+
+        const storedAttendance = await getPersistentItem('amoozgar_attendance', null);
+        if (storedAttendance && isMounted) setAttendance(storedAttendance);
+
+        const storedScores = await getPersistentItem('amoozgar_scores', null);
+        if (storedScores && isMounted) setScores(storedScores);
+
+        const storedJournals = await getPersistentItem('amoozgar_journals', null);
+        if (storedJournals && isMounted) setJournals(storedJournals);
+
+        const storedBehavioral = await getPersistentItem('amoozgar_behavioralPoints', null);
+        if (storedBehavioral && isMounted) setBehavioralPoints(storedBehavioral);
+
+        const storedTimetable = await getPersistentItem('amoozgar_timetable', null);
+        if (storedTimetable && isMounted) setTimetable(storedTimetable);
+      } catch (err) {
+        console.warn('Storage restoration warning:', err);
+      }
     }
+    restoreFromIndexedDB();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Sync state to LocalStorage & IndexedDB
+  useEffect(() => {
+    setPersistentItem('amoozgar_classrooms', classrooms);
   }, [classrooms]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('amoozgar_selectedClassId', selectedClassId);
-    } catch (e) {
-      console.error(e);
-    }
+    setPersistentItem('amoozgar_selectedClassId', selectedClassId);
   }, [selectedClassId]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('amoozgar_students', JSON.stringify(students));
-    } catch (e) {
-      console.error(e);
-    }
+    setPersistentItem('amoozgar_students', students);
   }, [students]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('amoozgar_attendance', JSON.stringify(attendance));
-    } catch (e) {
-      console.error(e);
-    }
+    setPersistentItem('amoozgar_attendance', attendance);
   }, [attendance]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('amoozgar_scores', JSON.stringify(scores));
-    } catch (e) {
-      console.error(e);
-    }
+    setPersistentItem('amoozgar_scores', scores);
   }, [scores]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('amoozgar_journals', JSON.stringify(journals));
-    } catch (e) {
-      console.error(e);
-    }
+    setPersistentItem('amoozgar_journals', journals);
   }, [journals]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('amoozgar_behavioralPoints', JSON.stringify(behavioralPoints));
-    } catch (e) {
-      console.error(e);
-    }
+    setPersistentItem('amoozgar_behavioralPoints', behavioralPoints);
   }, [behavioralPoints]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('amoozgar_timetable', JSON.stringify(timetable));
-    } catch (e) {
-      console.error(e);
-    }
+    setPersistentItem('amoozgar_timetable', timetable);
   }, [timetable]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('amoozgar_isDarkMode', JSON.stringify(isDarkMode));
-    } catch (e) {
-      console.error(e);
-    }
+    setPersistentItem('amoozgar_isDarkMode', isDarkMode);
   }, [isDarkMode]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('amoozgar_activeTab', activeTab);
-    } catch (e) {
-      console.error(e);
-    }
+    setPersistentItem('amoozgar_activeTab', activeTab);
   }, [activeTab]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('amoozgar_dashboardSubView', dashboardSubView);
-    } catch (e) {
-      console.error(e);
-    }
+    setPersistentItem('amoozgar_dashboardSubView', dashboardSubView);
   }, [dashboardSubView]);
 
   useEffect(() => {
