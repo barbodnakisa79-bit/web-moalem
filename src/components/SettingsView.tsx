@@ -37,9 +37,10 @@ import {
   UserCheck,
   X,
 } from 'lucide-react';
-import { Classroom, Student, AttendanceRecord, ScoreRecord, ClassJournalEntry, BehavioralPoint, TimetableItem, SchoolDetails, EDUCATION_STAGES } from '../types';
+import { Classroom, Student, AttendanceRecord, ScoreRecord, ClassJournalEntry, BehavioralPoint, TimetableItem, SchoolDetails, EDUCATION_STAGES, STAGE_GRADES_MAP, GRADE_OPTIONS } from '../types';
 import { ColorPickerSelector } from './ColorPickerSelector';
 import { getCardColorClasses, getCardColorStyle } from '../utils/cardColors';
+import { matchGradeToStage, normalizePersianText, normalizePersianNumbers } from '../utils/studentUtils';
 
 interface SettingsViewProps {
   onOpenDeveloperModal: () => void;
@@ -433,14 +434,135 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     e.target.value = '';
   };
 
-  // 3. Export XLSX Excel File
+  // 3. Download Sample Raw Excel Template (.xlsx)
+  const handleDownloadSampleExcel = () => {
+    try {
+      const workbook = XLSX.utils.book_new();
+
+      // Sample Data
+      const sampleRows = [
+        {
+          'ردیف': 1,
+          'نام و نام خانوادگی': 'علی رضایی',
+          'کد ملی / دانش‌آموزی': '0012345678',
+          'نام مدرسه': 'دبیرستان رازی',
+          'مقطع و شاخه تحصیلی': 'متوسطه دوم - نظری تجربی',
+          'پایه تحصیلی': 'پایه دهم (نظری تجربی)',
+          'عنوان کلاس / شعبه': 'کلاس ۱۰۱',
+          'نام درس یا دروس': 'فیزیک ۱، آزمایشگاه علوم',
+          'نام پدر': 'حسین',
+          'شماره تماس': '09123456789',
+          'یادداشت / توضیحات': 'دانش‌آموز نمونه',
+        },
+        {
+          'ردیف': 2,
+          'نام و نام خانوادگی': 'محمد حسینی',
+          'کد ملی / دانش‌آموزی': '0023456789',
+          'نام مدرسه': 'دبیرستان رازی',
+          'مقطع و شاخه تحصیلی': 'متوسطه دوم - نظری تجربی',
+          'پایه تحصیلی': 'پایه دهم (نظری تجربی)',
+          'عنوان کلاس / شعبه': 'کلاس ۱۰۱',
+          'نام درس یا دروس': 'فیزیک ۱، شیمی ۱',
+          'نام پدر': 'رضا',
+          'شماره تماس': '09129876543',
+          'یادداشت / توضیحات': '',
+        },
+        {
+          'ردیف': 3,
+          'نام و نام خانوادگی': 'سارا احمدی',
+          'کد ملی / دانش‌آموزی': '0034567890',
+          'نام مدرسه': 'هنرستان شهید بهشتی',
+          'مقطع و شاخه تحصیلی': 'هنرستان - فنی و حرفه‌ای',
+          'پایه تحصیلی': 'پایه یازدهم (فنی و حرفه‌ای)',
+          'عنوان کلاس / شعبه': 'کلاس ۲۰۱',
+          'نام درس یا دروس': 'توسعه برنامه‌سازی، شبکه',
+          'نام پدر': 'احمد',
+          'شماره تماس': '09351234567',
+          'یادداشت / توضیحات': '',
+        },
+        {
+          'ردیف': 4,
+          'نام و نام خانوادگی': 'مهدی کریمی',
+          'کد ملی / دانش‌آموزی': '0045678901',
+          'نام مدرسه': 'دبستان دانش',
+          'مقطع و شاخه تحصیلی': 'ابتدایی (دبستان)',
+          'پایه تحصیلی': 'پایه پنجم ابتدایی',
+          'عنوان کلاس / شعبه': 'کلاس ۵۰۲',
+          'نام درس یا دروس': 'ریاضی، علوم تجربی',
+          'نام پدر': 'مهرداد',
+          'شماره تماس': '09191112233',
+          'یادداشت / توضیحات': '',
+        },
+      ];
+
+      const sampleSheet = XLSX.utils.json_to_sheet(sampleRows);
+
+      // Set column widths
+      sampleSheet['!cols'] = [
+        { wch: 6 },  // ردیف
+        { wch: 22 }, // نام و نام خانوادگی
+        { wch: 18 }, // کد ملی
+        { wch: 20 }, // نام مدرسه
+        { wch: 26 }, // مقطع و شاخه
+        { wch: 22 }, // پایه
+        { wch: 16 }, // عنوان کلاس / شعبه
+        { wch: 26 }, // نام درس یا دروس
+        { wch: 14 }, // نام پدر
+        { wch: 16 }, // شماره تماس
+        { wch: 20 }, // یادداشت
+      ];
+
+      XLSX.utils.book_append_sheet(workbook, sampleSheet, 'مشخصات دانش‌آموزان');
+
+      // Guide Sheet
+      const guideRows = [
+        { 'عنوان ستون': 'نام و نام خانوادگی', 'ضرورت': 'ضروری', 'توضیحات و راهنما': 'نام کامل دانش‌آموز. در صورت داشتن دو ستون مجزا (نام و نام خانوادگی) نیز سیستم تشخیص می‌دهد.' },
+        { 'عنوان ستون': 'کد ملی / دانش‌آموزی', 'ضرورت': 'توصیه شده', 'توضیحات و راهنما': 'برای جلوگیری از ایجاد دانش‌آموز تکراری و ادغام خودکار درس‌ها بسیار مفید است.' },
+        { 'عنوان ستون': 'نام مدرسه', 'ضرورت': 'اختیاری', 'توضیحات و راهنما': 'نام آموزشگاه (مثلاً: دبیرستان رازی). دانش‌آموزان به کارت‌های همان مدرسه متصل می‌شوند.' },
+        { 'عنوان ستون': 'مقطع و شاخه تحصیلی', 'ضرورت': 'اختیاری', 'توضیحات و راهنما': 'مثال: متوسطه دوم - نظری تجربی، هنرستان - فنی و حرفه‌ای، ابتدایی و...' },
+        { 'عنوان ستون': 'پایه تحصیلی', 'ضرورت': 'اختیاری', 'توضیحات و راهنما': 'مثال: پایه دهم (نظری تجربی)، پایه هفتم، پایه پنجم ابتدایی' },
+        { 'عنوان ستون': 'عنوان کلاس / شعبه', 'ضرورت': 'اختیاری', 'توضیحات و راهنما': 'شماره یا نام کلاس/شعبه (مثلاً: کلاس ۱۰۱ یا الف)' },
+        { 'عنوان ستون': 'نام درس یا دروس', 'ضرورت': 'اختیاری', 'توضیحات و راهنما': 'اگر یک دانش‌آموز چند درس دارد، نام درس‌ها را با کاما (،) جدا کنید (مثال: فیزیک ۱، آزمایشگاه علوم). سیستم خودکار کارت‌های درس را پیدا کرده یا می‌سازد.' },
+        { 'عنوان ستون': 'نام پدر و تلفن', 'ضرورت': 'اختیاری', 'توضیحات و راهنما': 'اطلاعات تماس اولیا جهت ارتباط سریع در برنامه' },
+      ];
+
+      const guideSheet = XLSX.utils.json_to_sheet(guideRows);
+      guideSheet['!cols'] = [
+        { wch: 22 },
+        { wch: 12 },
+        { wch: 70 },
+      ];
+      XLSX.utils.book_append_sheet(workbook, guideSheet, 'راهنمای تکمیل اکسل');
+
+      const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `نمونه_فایل_خام_اکسل_دانش‌آموزان.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      showStatus('success', 'نمونه فایل خام اکسل (.xlsx) با موفقیت دانلود شد.');
+    } catch (err) {
+      showStatus('error', 'خطا در ایجاد نمونه فایل اکسل.');
+    }
+  };
+
+  // 4. Export XLSX Excel File
   const handleExportExcelAll = () => {
     try {
       const workbook = XLSX.utils.book_new();
 
       // Main Students Sheet
       const studentsRows = students.map((std, idx) => {
-        const cls = classrooms.find((c) => c.id === std.classId)?.name || 'نامشخص';
+        const cls = classrooms.find((c) => c.id === std.classId);
+        const allClsNames = (std.classIds && std.classIds.length > 0)
+          ? std.classIds.map((cid) => classrooms.find((c) => c.id === cid)?.subject || classrooms.find((c) => c.id === cid)?.name).filter(Boolean).join('، ')
+          : (cls?.subject || cls?.name || 'نامشخص');
+
         const stdAttendance = attendance.filter((a) => a.studentId === std.id && a.status === 'absent').length;
         const stdPoints = behavioralPoints
           .filter((p) => p.studentId === std.id)
@@ -448,25 +570,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         return {
           'ردیف': idx + 1,
-          'شناسه دانش‌آموز': std.id,
-          'کلاس / درس': cls,
-          'کد ملی/دانش‌آموزی': std.studentCode || '',
           'نام و نام خانوادگی': std.fullName,
+          'کد ملی / دانش‌آموزی': std.studentCode || '',
+          'نام مدرسه': std.schoolName || cls?.schoolName || '',
+          'مقطع و شاخه تحصیلی': std.educationStage || cls?.educationStage || '',
+          'پایه تحصیلی': std.grade || cls?.grade || '',
+          'عنوان کلاس / شعبه': std.className || cls?.name || '',
+          'نام درس یا دروس': allClsNames,
           'نام پدر': std.fatherName || '',
           'شماره تماس': std.parentPhone || '',
           'تعداد غیبت': stdAttendance,
           'امتیاز انضباطی': stdPoints,
+          'یادداشت / توضیحات': std.notes || '',
         };
       });
 
       const studentsSheet = XLSX.utils.json_to_sheet(studentsRows);
+      studentsSheet['!cols'] = [
+        { wch: 6 },
+        { wch: 22 },
+        { wch: 18 },
+        { wch: 20 },
+        { wch: 24 },
+        { wch: 20 },
+        { wch: 16 },
+        { wch: 26 },
+        { wch: 14 },
+        { wch: 16 },
+        { wch: 12 },
+        { wch: 14 },
+        { wch: 20 },
+      ];
       XLSX.utils.book_append_sheet(workbook, studentsSheet, 'دانش‌آموزان');
 
       // Scores Sheet
       if (scores && scores.length > 0) {
         const scoresRows = scores.map((s, idx) => {
           const std = students.find((st) => st.id === s.studentId);
-          const cls = classrooms.find((c) => c.id === std?.classId)?.name || '';
+          const cls = classrooms.find((c) => c.id === (s.classId || std?.classId))?.name || '';
           return {
             'ردیف': idx + 1,
             'نام دانش‌آموز': std?.fullName || '',
@@ -486,7 +627,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       if (attendance && attendance.length > 0) {
         const attendanceRows = attendance.map((a, idx) => {
           const std = students.find((st) => st.id === a.studentId);
-          const cls = classrooms.find((c) => c.id === std?.classId)?.name || '';
+          const cls = classrooms.find((c) => c.id === (a.classId || std?.classId))?.name || '';
           return {
             'ردیف': idx + 1,
             'نام دانش‌آموز': std?.fullName || '',
@@ -518,7 +659,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  // 4. Import XLSX / XLS / CSV
+  // 5. Smart Import XLSX / XLS / CSV with School, Grade, and Multi-Subject Mapping
   const handleExcelFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -528,48 +669,236 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       try {
         const buffer = event.target?.result as ArrayBuffer;
         const workbook = XLSX.read(buffer, { type: 'array' });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
         
-        // Convert sheet to json array
-        const rawData: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+        // Find sheets with students data or default to first sheet
+        const sheetName = workbook.SheetNames.find((s) => s.includes('دانش') || s.includes('مشخصات') || s.includes('Student')) || workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        
+        // Read as JSON rows
+        const rawJson: any[] = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+        // Also get table rows array as fallback
+        const rawTable: any[] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
-        if (rawData && rawData.length > 1) {
-          const newStudentsList: Student[] = [];
+        let parsedRows: any[] = [];
 
-          // Determine column headers if present
-          for (let i = 1; i < rawData.length; i++) {
-            const row = rawData[i];
-            if (!row || row.length === 0) continue;
+        if (rawJson && rawJson.length > 0 && typeof rawJson[0] === 'object') {
+          parsedRows = rawJson;
+        } else if (rawTable && rawTable.length > 1) {
+          const headers = rawTable[0];
+          for (let r = 1; r < rawTable.length; r++) {
+            const rowData = rawTable[r];
+            if (!rowData || rowData.length === 0) continue;
+            const obj: any = {};
+            headers.forEach((h: any, colIdx: number) => {
+              if (h) obj[String(h).trim()] = rowData[colIdx] ?? '';
+            });
+            parsedRows.push(obj);
+          }
+        }
 
-            const studentCode = String(row[3] || row[2] || row['کد ملی/دانش‌آموزی'] || row['کد دانش‌آموزی'] || '').trim();
-            const fullName = String(row[4] || row[3] || row[1] || row['نام و نام خانوادگی'] || '').trim();
-            const fatherName = String(row[5] || row[4] || row['نام پدر'] || '').trim();
-            const parentPhone = String(row[6] || row[5] || row['شماره تماس'] || row['تلفن'] || '').trim();
+        if (!parsedRows || parsedRows.length === 0) {
+          showStatus('info', 'هیچ داده‌ای در فایل اکسل یافت نشد.');
+          return;
+        }
 
-            if (fullName && fullName !== 'نام و نام خانوادگی' && fullName !== 'نام') {
-              newStudentsList.push({
-                id: `std-${Date.now()}-${i}`,
-                classId: classrooms[0]?.id || 'c1',
-                studentCode: studentCode,
-                fullName: fullName,
-                fatherName: fatherName,
-                parentPhone: parentPhone,
-              });
+        // Helper to extract field from row object with various Persian & English aliases
+        const getField = (row: any, aliases: string[]): string => {
+          for (const key of Object.keys(row)) {
+            const normKey = normalizePersianText(key).toLowerCase();
+            for (const alias of aliases) {
+              const normAlias = normalizePersianText(alias).toLowerCase();
+              if (normKey === normAlias || normKey.includes(normAlias)) {
+                const val = row[key];
+                if (val !== undefined && val !== null) return String(val).trim();
+              }
+            }
+          }
+          return '';
+        };
+
+        const updatedClassrooms = [...classrooms];
+        let newClassesCount = 0;
+
+        // Current students map for deduplication
+        const studentMap = new Map<string, Student>();
+        students.forEach((s) => {
+          // Key by student code if present, else by fullName + schoolName
+          const key = s.studentCode ? `code:${s.studentCode.trim()}` : `name:${normalizePersianText(s.fullName)}|sch:${normalizePersianText(s.schoolName)}`;
+          studentMap.set(key, { ...s, classIds: s.classIds ? [...s.classIds] : (s.classId ? [s.classId] : []) });
+        });
+
+        let validCount = 0;
+
+        parsedRows.forEach((row, rowIdx) => {
+          // Extract student name
+          let fullName = getField(row, ['نام و نام خانوادگی', 'نام کامل', 'دانش آموز', 'دانش‌آموز', 'fullName', 'نام خانوادگی و نام', 'نام خانوادگی و نام دانش آموز']);
+          if (!fullName) {
+            const firstName = getField(row, ['نام', 'firstName']);
+            const lastName = getField(row, ['نام خانوادگی', 'شهرت', 'فامیلی', 'lastName']);
+            if (firstName || lastName) {
+              fullName = `${firstName} ${lastName}`.trim();
             }
           }
 
-          if (newStudentsList.length > 0 && onRestoreData) {
-            onRestoreData({
-              students: [...students, ...newStudentsList],
-            });
-            showStatus('success', `${newStudentsList.length} دانش‌آموز از فایل اکسل وارد شد.`);
-          } else {
-            showStatus('info', 'اطلاعات معتبری در فایل اکسل پیدا نشد.');
+          if (!fullName || fullName === 'نام و نام خانوادگی' || fullName === 'نام') {
+            return;
           }
+
+          const rawCode = getField(row, ['کد ملی / دانش‌آموزی', 'کد ملی', 'کد دانش آموزی', 'کد دانش‌آموزی', 'شماره ملی', 'کد ملی/دانش‌آموزی', 'studentCode', 'nationalCode', 'کد']);
+          const studentCode = normalizePersianNumbers(rawCode);
+
+          const schoolName = getField(row, ['نام مدرسه', 'مدرسه', 'نام آموزشگاه', 'آموزشگاه', 'schoolName', 'school']);
+          const rawStage = getField(row, ['مقطع و شاخه تحصیلی', 'مقطع تحصیلی', 'مقطع', 'شاخه', 'شاخه تحصیلی', 'educationStage']);
+          const educationStage = rawStage || (schoolName && classrooms.find((c) => normalizePersianText(c.schoolName) === normalizePersianText(schoolName))?.educationStage) || 'متوسطه دوم - نظری تجربی';
+          
+          const rawGrade = getField(row, ['پایه تحصیلی', 'پایه', 'کلاس/پایه', 'grade']);
+          const matchedGrade = matchGradeToStage(rawGrade || (classrooms[0]?.grade), educationStage);
+
+          const className = getField(row, ['عنوان کلاس / شعبه', 'عنوان کلاس', 'کلاس', 'شعبه', 'نام کلاس', 'className', 'کلاس/شعبه']);
+          const subjectStr = getField(row, ['نام درس یا دروس', 'درس یا دروس', 'درس', 'دروس', 'نام درس', 'کلاس / درس', 'کلاس/درس', 'subject', 'subjects']);
+          const fatherName = getField(row, ['نام پدر', 'پدر', 'fatherName', 'father']);
+          const parentPhone = normalizePersianNumbers(getField(row, ['شماره تماس', 'تلفن', 'موبایل', 'شماره همراه', 'تلفن همراه', 'تلفن اولیا', 'parentPhone', 'phone']));
+          const notes = getField(row, ['یادداشت / توضیحات', 'توضیحات', 'یادداشت', 'notes', 'description']);
+
+          // Parse subjects (can be comma-separated or slash-separated)
+          const subjectNames: string[] = [];
+          if (subjectStr) {
+            const rawSubjects = subjectStr.split(/[,،/|\-+]/);
+            rawSubjects.forEach((s) => {
+              const clean = normalizePersianText(s);
+              if (clean && clean.length > 1) subjectNames.push(clean);
+            });
+          }
+
+          // If no specific subject given, fallback to single generic subject or className
+          if (subjectNames.length === 0) {
+            subjectNames.push(className || 'درس عمومی');
+          }
+
+          // Find or create matching classrooms for this student
+          const assignedClassIds: string[] = [];
+
+          subjectNames.forEach((subj) => {
+            const normSubj = normalizePersianText(subj);
+            const normSchool = normalizePersianText(schoolName);
+            const normGrade = normalizePersianText(matchedGrade);
+
+            // 1. Look for existing classroom matching school + grade + subject (or name)
+            let existingClass = updatedClassrooms.find((c) => {
+              const cSchool = normalizePersianText(c.schoolName);
+              const cGrade = normalizePersianText(c.grade);
+              const cSubj = normalizePersianText(c.subject);
+              const cName = normalizePersianText(c.name);
+
+              const matchSchool = !normSchool || !cSchool || cSchool === normSchool;
+              const matchGrade = !normGrade || !cGrade || cGrade === normGrade || cGrade.includes(normGrade) || normGrade.includes(cGrade);
+              const matchSubj = cSubj === normSubj || cName.includes(normSubj) || normSubj.includes(cSubj) || (normSubj === 'درس عمومی');
+
+              return matchSchool && matchGrade && matchSubj;
+            });
+
+            // 2. If not found, look for any classroom matching school and subject
+            if (!existingClass && normSchool) {
+              existingClass = updatedClassrooms.find((c) => {
+                const cSchool = normalizePersianText(c.schoolName);
+                const cSubj = normalizePersianText(c.subject);
+                return cSchool === normSchool && (cSubj === normSubj || normSubj.includes(cSubj));
+              });
+            }
+
+            if (existingClass) {
+              if (!assignedClassIds.includes(existingClass.id)) {
+                assignedClassIds.push(existingClass.id);
+              }
+            } else {
+              // 3. Create a new classroom automatically!
+              const newClassId = `c-excel-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+              const generatedName = subj !== 'درس عمومی'
+                ? (className ? `${subj} (${className})` : `${subj} ${matchedGrade || ''}`.trim())
+                : (className || `${matchedGrade || 'کلاس'} ${schoolName || ''}`.trim());
+
+              const isElementary = educationStage.includes('ابتدایی');
+              const newClass: Classroom = {
+                id: newClassId,
+                name: generatedName,
+                subject: subj !== 'درس عمومی' ? subj : (className || 'عمومی'),
+                grade: matchedGrade || 'پایه دهم',
+                schoolName: schoolName || (classrooms[0]?.schoolName || ''),
+                educationStage: educationStage || 'متوسطه دوم - نظری تجربی',
+                academicYear: '۱۴۰۳-۱۴۰۴',
+                evaluationSystem: isElementary ? 'descriptive' : 'numeric',
+                cardBgColor: '#0284c7',
+                showName: true,
+                showGrade: true,
+                showSchoolName: true,
+                showEducationStage: true,
+                showAcademicYear: true,
+              };
+
+              updatedClassrooms.push(newClass);
+              assignedClassIds.push(newClassId);
+              newClassesCount++;
+            }
+          });
+
+          // Deduplicate & save student
+          const dedupKey = studentCode ? `code:${studentCode}` : `name:${normalizePersianText(fullName)}|sch:${normalizePersianText(schoolName)}`;
+          
+          if (studentMap.has(dedupKey)) {
+            // Update existing student: merge new classIds
+            const existingStd = studentMap.get(dedupKey)!;
+            const mergedClassIds = Array.from(new Set([...(existingStd.classIds || [existingStd.classId]), ...assignedClassIds]));
+            existingStd.classIds = mergedClassIds;
+            if (assignedClassIds.length > 0 && !existingStd.classId) {
+              existingStd.classId = assignedClassIds[0];
+            }
+            if (fatherName && !existingStd.fatherName) existingStd.fatherName = fatherName;
+            if (parentPhone && !existingStd.parentPhone) existingStd.parentPhone = parentPhone;
+            if (schoolName && !existingStd.schoolName) existingStd.schoolName = schoolName;
+            if (educationStage && !existingStd.educationStage) existingStd.educationStage = educationStage;
+            if (matchedGrade && !existingStd.grade) existingStd.grade = matchedGrade;
+            if (className && !existingStd.className) existingStd.className = className;
+            if (notes && !existingStd.notes) existingStd.notes = notes;
+            studentMap.set(dedupKey, existingStd);
+          } else {
+            // Create new student
+            const newStudentObj: Student = {
+              id: `std-xl-${Date.now()}-${rowIdx}`,
+              classId: assignedClassIds[0] || updatedClassrooms[0]?.id || 'c1',
+              classIds: assignedClassIds,
+              fullName: fullName,
+              studentCode: studentCode || `00${Date.now() % 1000000}${rowIdx}`,
+              fatherName: fatherName || undefined,
+              parentPhone: parentPhone || undefined,
+              schoolName: schoolName || undefined,
+              educationStage: educationStage || undefined,
+              grade: matchedGrade || undefined,
+              className: className || undefined,
+              notes: notes || undefined,
+            };
+            studentMap.set(dedupKey, newStudentObj);
+          }
+          validCount++;
+        });
+
+        const finalStudentsList = Array.from(studentMap.values());
+
+        if (validCount > 0 && onRestoreData) {
+          onRestoreData({
+            classrooms: updatedClassrooms,
+            students: finalStudentsList,
+          });
+
+          let msg = `تعداد ${validCount} دانش‌آموز با موفقیت از اکسل وارد و در کلاس‌های مربوطه جای‌گذاری شدند.`;
+          if (newClassesCount > 0) {
+            msg += ` (${newClassesCount} کارت درس جدید نیز به‌صورت خودکار ایجاد شد).`;
+          }
+          showStatus('success', msg);
+        } else {
+          showStatus('info', 'اطلاعات معتبری در فایل اکسل پیدا نشد. لطفاً از نمونه فایل خام استفاده فرمایید.');
         }
-      } catch (err) {
-        showStatus('error', 'خطا در بارگذاری فایل اکسل.');
+      } catch (err: any) {
+        showStatus('error', err?.message || 'خطا در پردازش فایل اکسل.');
       }
     };
     reader.readAsArrayBuffer(file);
@@ -1223,34 +1552,67 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </div>
                   </div>
 
-                  {/* Card 3: Excel Export & Import All Subjects */}
+                  {/* Card 3: Excel Export, Import & Sample Template */}
                   <div className={`border rounded-2xl p-5 space-y-4 ${
                     isDarkMode
                       ? 'bg-slate-800/80 border-slate-700/80 text-white'
                       : 'bg-slate-50 border-slate-200 text-slate-800'
                   }`}>
-                    <div className={`flex items-center gap-2 font-bold text-sm ${
-                      isDarkMode ? 'text-teal-300' : 'text-teal-700'
-                    }`}>
-                      <FileSpreadsheet className="w-4 h-4" />
-                      <span>پشتیبان‌گیری و انتقال اطلاعات به اکسل (فرمت XLSX)</span>
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <div className={`flex items-center gap-2 font-bold text-sm ${
+                        isDarkMode ? 'text-teal-300' : 'text-teal-700'
+                      }`}>
+                        <FileSpreadsheet className="w-5 h-5 text-emerald-500" />
+                        <span>پشتیبان‌گیری و انتقال اطلاعات به اکسل (فرمت XLSX)</span>
+                      </div>
+                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-lg self-start sm:self-auto ${
+                        isDarkMode ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-800/50' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        پشتیبانی از چند درس و چند کلاس
+                      </span>
                     </div>
-                    <p className={`text-xs font-semibold ${
-                      isDarkMode ? 'text-teal-400/80' : 'text-teal-600'
-                    }`}>
-                      خروجی و ورودی اکسل واقعی (.xlsx) جهت کلیه دروس
-                    </p>
 
                     <p className={`text-xs leading-relaxed ${
                       isDarkMode ? 'text-slate-300' : 'text-slate-600'
                     }`}>
-                      دریافت فایل اکسل واقعی با فرمت XLSX شامل شیت‌های مجزا برای دانش‌آموزان، نمرات و حضور و غیاب کلیه دروس به صورت یکجا، یا ورود اطلاعات از فایل اکسل.
+                      امکان خروجی گرفتن، دانلود نمونه فایل خام جهت تکمیل اسامی، یا ورود اطلاعات هوشمند از اکسل با تفکیک خودکار مدرسه، پایه و دروس.
                     </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    {/* Quick Guide Box */}
+                    <div className={`p-3 rounded-xl border text-xs leading-relaxed flex items-start gap-2.5 ${
+                      isDarkMode
+                        ? 'bg-slate-900/60 border-slate-700 text-slate-300'
+                        : 'bg-white border-slate-200 text-slate-700 shadow-2xs'
+                    }`}>
+                      <Info className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-emerald-600 dark:text-emerald-400">نکته هوشمند: </span>
+                        اگر در فایل اکسل ستون‌های <strong>نام مدرسه</strong>، <strong>پایه</strong> و <strong>نام درس یا دروس</strong> را پر کنید، سیستم به‌صورت هوشمند دانش‌آموز را در کارت‌های درس مربوطه جای‌گذاری می‌کند. اگر یک دانش‌آموز چند درس دارد، نام دروس را با کاما (<code className="bg-slate-200 dark:bg-slate-800 px-1 py-0.5 rounded">،</code>) بنویسید (مثلاً: <em>فیزیک ۱، شیمی ۱، آزمایشگاه</em>).
+                      </div>
+                    </div>
+
+                    {/* Action Buttons Grid */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                      {/* 1. Download Sample Raw Template */}
                       <button
+                        type="button"
+                        onClick={handleDownloadSampleExcel}
+                        className={`flex items-center justify-center gap-2 font-bold py-3 px-3.5 rounded-xl border transition-all active:scale-98 text-xs sm:text-sm shadow-xs ${
+                          isDarkMode
+                            ? 'bg-emerald-950/50 hover:bg-emerald-900/60 text-emerald-300 border-emerald-600/50'
+                            : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300'
+                        }`}
+                        title="دانلود فایل نمونه اکسل جهت تکمیل توسط کاربر"
+                      >
+                        <Download className="w-4 h-4 text-emerald-600 dark:text-emerald-400 stroke-[2.5]" />
+                        <span>دانلود نمونه خام اکسل</span>
+                      </button>
+
+                      {/* 2. Export All Excel */}
+                      <button
+                        type="button"
                         onClick={handleExportExcelAll}
-                        className={`flex items-center justify-center gap-2 font-bold py-3 px-4 rounded-xl shadow-md transition-all active:scale-98 text-xs sm:text-sm ${
+                        className={`flex items-center justify-center gap-2 font-bold py-3 px-3.5 rounded-xl shadow-md transition-all active:scale-98 text-xs sm:text-sm ${
                           isDarkMode
                             ? 'bg-teal-400 hover:bg-teal-300 text-slate-950'
                             : 'bg-teal-600 hover:bg-teal-700 text-white'
@@ -1260,16 +1622,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         <span>خروجی اکسل (XLSX)</span>
                       </button>
 
+                      {/* 3. Import Excel */}
                       <button
+                        type="button"
                         onClick={() => excelInputRef.current?.click()}
-                        className={`flex items-center justify-center gap-2 font-bold py-3 px-4 rounded-xl border transition-all active:scale-98 text-xs sm:text-sm ${
+                        className={`flex items-center justify-center gap-2 font-bold py-3 px-3.5 rounded-xl border transition-all active:scale-98 text-xs sm:text-sm ${
                           isDarkMode
                             ? 'bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 border-teal-500/40'
                             : 'bg-teal-50 hover:bg-teal-100 text-teal-700 border-teal-200'
                         }`}
                       >
                         <Upload className="w-4 h-4 stroke-[2.5]" />
-                        <span>ورودی اکسل (XLSX/XLS)</span>
+                        <span>ورود فایل اکسل (XLSX)</span>
                       </button>
                     </div>
                   </div>
