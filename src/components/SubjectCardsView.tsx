@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Classroom, Student, EvaluationSystem, GRADE_OPTIONS, EDUCATION_STAGES, STAGE_GRADES_MAP, SchoolDetails } from '../types';
-import { isStudentInClassroom } from '../utils/studentUtils';
+import { isStudentInClassroom, matchGradeToStage } from '../utils/studentUtils';
 import { ColorPickerSelector } from './ColorPickerSelector';
 import { getCardColorClasses, getCardColorStyle } from '../utils/cardColors';
 import {
@@ -985,10 +985,7 @@ export const SubjectCardsView: React.FC<SubjectCardsViewProps> = ({
                   onChange={(e) => {
                     const newStage = e.target.value;
                     setEditEducationStage(newStage);
-                    const available = STAGE_GRADES_MAP[newStage] || GRADE_OPTIONS;
-                    if (available && available.length > 0) {
-                      setEditGrade(available[0]);
-                    }
+                    setEditGrade(matchGradeToStage(editGrade, newStage));
                   }}
                   className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-slate-800 dark:text-white font-bold focus:ring-2 focus:ring-indigo-500 dark:focus:ring-teal-400 cursor-pointer"
                 >

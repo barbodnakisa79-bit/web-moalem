@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Classroom, EvaluationSystem, GRADE_OPTIONS, EDUCATION_STAGES, STAGE_GRADES_MAP } from '../types';
+import { matchGradeToStage } from '../utils/studentUtils';
 import { Plus, X, School, Eye, EyeOff, Users, Layers } from 'lucide-react';
 import { ColorPickerSelector } from './ColorPickerSelector';
 
@@ -47,10 +48,7 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
   // Synchronize grade if educationStage changes
   const handleStageChange = (newStage: string) => {
     setEducationStage(newStage);
-    const available = STAGE_GRADES_MAP[newStage] || GRADE_OPTIONS;
-    if (available && available.length > 0) {
-      setGrade(available[0]);
-    }
+    setGrade(matchGradeToStage(grade, newStage));
   };
 
   const registeredSchools = useMemo(() => {

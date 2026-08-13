@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Student, Classroom, ScoreRecord, AttendanceRecord, BehavioralPoint, EDUCATION_STAGES, STAGE_GRADES_MAP, GRADE_OPTIONS } from '../types';
+import { matchGradeToStage } from '../utils/studentUtils';
 import {
   ArrowRight,
   User,
@@ -65,7 +66,7 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
   const [notes, setNotes] = useState(student.notes || '');
   const [schoolName, setSchoolName] = useState(student.schoolName || classroom.schoolName || '');
   const [educationStage, setEducationStage] = useState(student.educationStage || classroom.educationStage || 'متوسطه دوم - نظری تجربی');
-  const [grade, setGrade] = useState(student.grade || classroom.grade || 'پایه دهم');
+  const [grade, setGrade] = useState(() => matchGradeToStage(student.grade || classroom.grade, student.educationStage || classroom.educationStage || 'متوسطه دوم - نظری تجربی'));
   const [isCustomSchool, setIsCustomSchool] = useState(false);
   const [isCustomGrade, setIsCustomGrade] = useState(false);
   const [saveSuccessMsg, setSaveSuccessMsg] = useState('');
@@ -121,32 +122,18 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
     return Array.from(list);
   }, [classroom, student]);
 
-  // Compute available grades dropdown list
+  // Compute available grades dropdown list based on selected stage
   const availableGrades = useMemo(() => {
-    const list = new Set<string>([
-      'پایه اول ابتدایی',
-      'پایه دوم ابتدایی',
-      'پایه سوم ابتدایی',
-      'پایه چهارم ابتدایی',
-      'پایه پنجم ابتدایی',
-      'پایه ششم ابتدایی',
-      'پایه هفتم (متوسطه اول)',
-      'پایه هشتم (متوسطه اول)',
-      'پایه نهم (متوسطه اول)',
-      'پایه دهم (متوسطه دوم)',
-      'پایه یازدهم (متوسطه دوم)',
-      'پایه دوازدهم (متوسطه دوم)',
-    ]);
+    const stageGrades = STAGE_GRADES_MAP[educationStage] || GRADE_OPTIONS;
+    const list = new Set<string>(stageGrades);
 
-    if (classroom?.grade && typeof classroom.grade === 'string' && classroom.grade.trim()) {
-      list.add(classroom.grade.trim());
-    }
     if (student?.grade && typeof student.grade === 'string' && student.grade.trim()) {
-      list.add(student.grade.trim());
+      const matched = matchGradeToStage(student.grade, educationStage);
+      list.add(matched);
     }
 
     return Array.from(list);
-  }, [classroom, student]);
+  }, [educationStage, student]);
 
   // Quick Add Grade state
   const [showAddGradeForm, setShowAddGradeForm] = useState(false);
@@ -574,10 +561,9 @@ export const StudentProfileView: React.FC<StudentProfileViewProps> = ({
                         onChange={(e) => {
                           const newStage = e.target.value;
                           setEducationStage(newStage);
-                          const available = STAGE_GRADES_MAP[newStage] || GRADE_OPTIONS;
-                          if (available && available.length > 0) {
-                            setGrade(available[0]);
-                          }
+                          const newMatched = matchGradeToStage(grade, newStage);
+                          setGrade(newMatched);
+                          setIsCustomGrade(false);
                         }}
                         className={`w-full px-3.5 py-2.5 rounded-xl border font-bold text-sm focus:outline-hidden cursor-pointer ${
                           isDarkMode ? 'bg-slate-800 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { Classroom, Student, ScoreRecord, AttendanceRecord, BehavioralPoint, GRADE_OPTIONS, EDUCATION_STAGES, STAGE_GRADES_MAP } from '../types';
-import { isStudentInClassroom, sortStudentsByLastName } from '../utils/studentUtils';
+import { isStudentInClassroom, sortStudentsByLastName, matchGradeToStage } from '../utils/studentUtils';
 import { Users, Search, Plus, Phone, FileText, Trash2, X } from 'lucide-react';
 import { StudentProfileModal } from './StudentProfileModal';
 
@@ -267,20 +267,13 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
     const baseGrades = STAGE_GRADES_MAP[educationStage] || GRADE_OPTIONS;
     const list = new Set<string>(baseGrades);
 
-    if (classrooms && Array.isArray(classrooms)) {
-      classrooms.forEach((c) => {
-        if (c.grade && typeof c.grade === 'string' && c.grade.trim()) {
-          list.add(c.grade.trim());
-        }
-      });
-    }
-
     if (classroom?.grade && typeof classroom.grade === 'string' && classroom.grade.trim()) {
-      list.add(classroom.grade.trim());
+      const matched = matchGradeToStage(classroom.grade, educationStage);
+      list.add(matched);
     }
 
     return Array.from(list);
-  }, [classrooms, classroom, educationStage]);
+  }, [classroom, educationStage]);
 
   // Initialize form when opening modal
   useEffect(() => {
@@ -292,7 +285,7 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
       const defaultStage = classroom.educationStage || 'متوسطه دوم - نظری تجربی';
       setEducationStage(defaultStage);
 
-      const defaultGrade = classroom.grade || 'پایه دهم';
+      const defaultGrade = matchGradeToStage(classroom.grade, defaultStage);
       setGrade(defaultGrade);
       setIsCustomGrade(false);
     }
@@ -705,11 +698,9 @@ export const StudentManagement: React.FC<StudentManagementProps> = ({
                     onChange={(e) => {
                       const newStage = e.target.value;
                       setEducationStage(newStage);
-                      const available = STAGE_GRADES_MAP[newStage] || GRADE_OPTIONS;
-                      if (available && available.length > 0) {
-                        setGrade(available[0]);
-                        setIsCustomGrade(false);
-                      }
+                      const newMatched = matchGradeToStage(grade, newStage);
+                      setGrade(newMatched);
+                      setIsCustomGrade(false);
                     }}
                     className={`w-full rounded-xl px-3 py-2 border font-bold focus:outline-hidden cursor-pointer ${
                       isDarkMode ? 'bg-slate-900 border-slate-700 text-white' : 'bg-slate-50 border-slate-200 text-slate-800'
